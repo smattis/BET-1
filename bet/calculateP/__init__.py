@@ -13,4 +13,4 @@ probability measure :math:`P_{\Lambda}`.
     :meth:`numpy.histogramdd` and for determining their volumes, etc. This
     module is only for use by :mod:`~bet.calculateP.simpleFunP`.  
 """
-__all__ = ['calculateP', 'simpleFunP', 'voronoiHistogram']
+__all__ = ['calculateP', 'simpleFunP', 'voronoiHistogram', 'calculateError']
