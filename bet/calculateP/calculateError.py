@@ -2,6 +2,7 @@ from bet.Comm import comm, MPI
 import numpy as np
 import scipy.spatial as spatial
 import bet.util as util
+import math
 
 
                  
@@ -9,6 +10,7 @@ def cell_connectivity_exact(samples, io_ptr):
     from scipy.spatial import Delaunay
     from collections import defaultdict
     import itertools
+    import numpy.linalg as nlinalg
 
     tri = Delaunay(samples)
     neiList=defaultdict(set)
@@ -20,9 +22,38 @@ def cell_connectivity_exact(samples, io_ptr):
         neiList[i] = list(set(neiList[i]))
     return neiList
 
-def cell_connectivity_approx(samples, io_ptr):
-    l_Tree = spatial.KDTree(samples)
-    pass
+# def cell_connectivity_approx(samples, io_ptr, lam_domain, num_per_circle = 3):
+#     l_Tree = spatial.KDTree(samples)
+#     Lambda_volume = 1.0
+#     for i in range(lam_domain.shape[0]):
+#         Lambda_volume *= lam_domain[i][1] - lam_domain[i][0]
+#     rad_start = 3.0*(Lambda_volume/float(samples.shape[0]))**(1.0/float(lam_domain.shape[0]))
+#     ball_points = l_Tree.query_ball_tree(l_Tree, rad_start, p=2.0)
+#     for i in range(samples.shape[0]):
+#         sample_ball = samples[ball_points[i],:] - samples[i,:]
+#         #coords_square = np.square(sample_ball)
+#         #ball_distance = np.empty((sample_ball.shape[0], sample_ball.shape[1]))
+#         ball_distance = np.sqrt(np.cumsum(np.square(sample_ball)[:,::-1], axis=1))[::-1]
+#         angles = np.empty((sample_ball.shape[0], sample_ball.shape[1]-1))
+#         #angles[:,0:-1] = np.arctan2(sample_ball[:,0:-2],ball_distance)
+#         #angles[:,-1] = 2.0*np.arctan2(sample_ball[:,-2] + (sample_ball[:,-1]**2 + sample_ball[:,-2]**2)**0.5, ball_distance)
+#         angles[:,0:-1] = np.arctan2(sample_ball[:,0:-2],ball_distance[:,1::])
+#         angles[:,-1] = 2.0*np.arctan2(sample_ball[:,-2] + (sample_ball[:,-1]**2 + sample_ball[:,-2]**2)**0.5, ball_distance[:,0])
+#         angles += np.less(angles, 0.0)*(math.pi+angles)
+#         angles = angles**-1.0
+        
+        
+#     pass
+
+def nearest_neighbor_orthant(samples, l_tree, radius):
+    ball_points = l_Tree.query_ball_tree(l_Tree, radius, p=2.0)
+    base_dict = {}
+    for i in range(samples
+    for i in range(samples.shape[0]):
+        sample_ball = np.sign(samples[ball_points[i],:] - samples[i,:])
+        sample_ball = sample_ball.astype(int)
+        
+    return neighbors
 
 def boundary_sets(samples, nei_list, io_ptr):
     from collections import defaultdict
