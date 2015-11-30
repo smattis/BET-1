@@ -48,7 +48,7 @@ def cell_connectivity_exact(samples, io_ptr):
 def nearest_neighbor_orthant(samples, l_tree, radius):
     ball_points = l_Tree.query_ball_tree(l_Tree, radius, p=2.0)
     base_dict = {}
-    for i in range(samples
+    for i in range(samples):
     for i in range(samples.shape[0]):
         sample_ball = np.sign(samples[ball_points[i],:] - samples[i,:])
         sample_ball = sample_ball.astype(int)
@@ -73,11 +73,27 @@ class sampling_error(object):
                  samples,
                  lam_vol,
                  rho_D_M,
-                 io_ptr,
+                 io_ptr= None,
+                 data = None,
                  exact = True):
+                       
         self.lam_vol = lam_vol
         self.rho_D_M = rho_D_M
+        
+        if io_ptr == None:
+            if len(samples.shape) == 1:
+                samples = np.expand_dims(samples, axis=1) 
+            if len(data.shape) == 1:
+                data = np.expand_dims(data, axis=1) 
 
+            if len(rho_D_M) == 1:
+                rho_D_M = np.expand_dims(rho_D_M, axis=1)
+            d_Tree = spatial.KDTree(rho_D_M)
+        
+            # Determine which inputs go to which M bins using the QoI
+            (_, io_ptr) = d_Tree.query(data)
+
+                   
         if exact:
             nei_list = cell_connectivity_exact(samples, io_ptr)
         else:
@@ -100,3 +116,41 @@ class sampling_error(object):
                 upper_bound += self.rho_D_M[i]*max(term1,term2)
                 lower_bound += self.rho_D_M[i]*min(term1,term2)  
         return (upper_bound, lower_bound)
+
+class model_error(object):
+    def __init__(self,
+                 samples,
+                 data,
+                 error_estimate,
+                 lam_vol,
+                 rho_D_M):
+        self.lam_vol = lam_vol
+        self.rho_D_M = rho_D_M
+
+        if len(samples.shape) == 1:
+            samples = np.expand_dims(samples, axis=1) 
+        if len(data.shape) == 1:
+            data = np.expand_dims(data, axis=1)
+        if len(error_estimate.shape) == 1:
+            error_estimate = np.expand_dims(error_estimate, axis=1)
+        if len(rho_D_M) == 1:
+            rho_D_M = np.expand_dims(rho_D_M, axis=1)
+        d_Tree = spatial.KDTree(rho_D_M)
+
+        # Determine which inputs go to which M bins using the QoI
+        (_, self.io_ptr1) = d_Tree.query(data)
+        (_, self.io_ptr2) = d_Tree.query(data+error_estimate)
+
+    def calculate_error_all(self):
+        er_est = 0.0
+        for i in range(self.rho_D_M.shape[0]):
+            if self.rho_D_M[i] > 0.0:
+                ind1 = np.equal(self.io_ptr1, i)
+                ind2 = np.equal(self.io_ptr2, i)
+                JiA = np.sum(self.lam_vol[ind1])
+                Ji = JiA
+                JiAe = np.sum(self.lam_vol[logical_and(ind1,ind2)])
+                Jie = np.sum(self.lam_vol[ind2])
+                er_est += rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
+
+        return er_est
