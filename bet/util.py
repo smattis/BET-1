@@ -5,8 +5,9 @@ The module contains general tools for BET.
 """
 
 import numpy as np
-from bet.Comm import *
+from bet.Comm import comm, MPI
 import collections
+import sys
 
 possible_types = {int:MPI.INT, float:MPI.DOUBLE}
 
@@ -79,10 +80,10 @@ def get_global_values(array, shape=None):
                 mpi_dtype = True
                 dtype = ptype
 
-        if type(shape) == type(None) or not mpi_dtype:
+        if shape is None or not mpi_dtype:
             # do a lowercase allgather
             a_shape = len(array.shape)
-            array = comm.allgather(array, array)
+            array = comm.allgather(array)
             if a_shape == 1:
                 return np.hstack(array)
             else:
@@ -98,11 +99,9 @@ def fix_dimensions_vector(vector):
     """
     Fix the dimensions of an input so that it is a :class:`numpy.ndarray` of
     shape (N,).
-
     :param vector: numerical object
     :rtype: :class:`numpy.ndarray`
     :returns: array of shape (N,)
-
     """
     if not isinstance(vector, collections.Iterable):
         vector = np.array([vector])
@@ -185,6 +184,21 @@ def fix_dimensions_data(data, dim=None):
         return data.transpose()
     else:
         return data
+
+def clean_data(data):
+    """
+    Clean data so that NaN->0, inf-> maxfloat, -inf-> -maxfloat
+
+    :param data: numerical object
+    :type data: :class:`numpy.ndarray`
+    :rtype: :class:`numpy.ndarray`
+    :returns: array of shape (data.shape)
+    
+    """
+    data[np.isnan(data)] = 0.0
+    data[np.isinf(data)] = np.sign(data[np.isinf(data)])*sys.float_info[0]
+
+    return data
 
 
 

@@ -6,9 +6,6 @@ This module provides methods for calulating the probability measure
 
 * :mod:`~bet.calculateP.prob_emulated` provides a skeleton class and calculates
     the probability for a set of emulation points.
-* :mod:`~bet.calculateP.calculateP.prob_samples_ex` calculates the exact
-    volumes of the interior voronoi cells and estimates the volumes of the
-    exterior voronoi cells by using a set of bounding points
 * :mod:`~bet.calculateP.calculateP.prob_samples_mc` estimates the volumes of
     the voronoi cells using MC integration
 """
@@ -32,7 +29,8 @@ def emulate_iid_lebesgue(lam_domain, num_l_emulate):
     :returns: a set of samples for emulation
 
     """
-    num_l_emulate = (num_l_emulate/comm.size) + (comm.rank < num_l_emulate%comm.size)
+    num_l_emulate = (num_l_emulate/comm.size) + \
+            (comm.rank < num_l_emulate%comm.size)
     lam_width = lam_domain[:, 1] - lam_domain[:, 0]
     lambda_emulate = lam_width*np.random.random((num_l_emulate,
         lam_domain.shape[0]))+lam_domain[:, 0] 
@@ -66,11 +64,11 @@ def prob_emulated(samples, data, rho_D_M, d_distr_samples,
         samples = np.expand_dims(samples, axis=1) 
     if len(data.shape) == 1:
         data = np.expand_dims(data, axis=1) 
-    if type(lambda_emulate) == type(None):
+    if lambda_emulate is None:
         lambda_emulate = samples
     if len(d_distr_samples.shape) == 1:
         d_distr_samples = np.expand_dims(d_distr_samples, axis=1)
-    if type(d_Tree) == type(None):
+    if d_Tree is None:
         d_Tree = spatial.KDTree(d_distr_samples)
         
     # Determine which inputs go to which M bins using the QoI
@@ -113,7 +111,7 @@ def prob(samples, data, rho_D_M, d_distr_samples, d_Tree=None):
     :param d_Tree: :class:`~scipy.spatial.KDTree` for d_distr_samples
     :rtype: tuple of :class:`~numpy.ndarray` of sizes (num_samples,),
         (num_samples,), (ndim, num_l_emulate), (num_samples,), (num_l_emulate,)
-    :returns: (P, lam_vol, lambda_emulate, io_ptr) where P is the
+    :returns: (P, lam_vol, io_ptr) where P is the
         probability associated with samples, and lam_vol the volumes associated
         with the samples, io_ptr a pointer from data to M bins.
 
@@ -124,14 +122,14 @@ def prob(samples, data, rho_D_M, d_distr_samples, d_Tree=None):
         data = np.expand_dims(data, axis=1) 
     if len(d_distr_samples.shape) == 1:
         d_distr_samples = np.expand_dims(d_distr_samples, axis=1)
-    if type(d_Tree) == type(None):
+    if d_Tree is None:
         d_Tree = spatial.KDTree(d_distr_samples)
 
     # Set up local arrays for parallelism
     local_index = range(0+comm.rank, samples.shape[0], comm.size)
     samples_local = samples[local_index, :]
     data_local = data[local_index, :]
-    local_array = np.array(local_index)
+    local_array = np.array(local_index, dtype='int64')
         
     # Determine which inputs go to which M bins using the QoI
     (_, io_ptr) = d_Tree.query(data_local)
@@ -186,11 +184,11 @@ def prob_mc(samples, data, rho_D_M, d_distr_samples,
         samples = np.expand_dims(samples, axis=1) 
     if len(data.shape) == 1:
         data = np.expand_dims(data, axis=1) 
-    if type(lambda_emulate) == type(None):
+    if lambda_emulate is None:
         lambda_emulate = samples
     if len(d_distr_samples.shape) == 1:
         d_distr_samples = np.expand_dims(d_distr_samples, axis=1)
-    if type(d_Tree) == type(None):
+    if d_Tree is None:
         d_Tree = spatial.KDTree(d_distr_samples)
         
     # Determine which inputs go to which M bins using the QoI
@@ -218,7 +216,7 @@ def prob_mc(samples, data, rho_D_M, d_distr_samples,
     samples_local = samples[local_index, :]
     data_local = data[local_index, :]
     lam_vol_local = lam_vol[local_index]
-    local_array = np.array(local_index)
+    local_array = np.array(local_index, dtype='int64')
         
     # Determine which inputs go to which M bins using the QoI
     (_, io_ptr_local) = d_Tree.query(data_local)

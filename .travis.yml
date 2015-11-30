@@ -27,9 +27,11 @@ notifications:
         recipients:
             - steve.a.mattis@gmail.com
             - lichgraham@gmail.com
+            - scottw13@gmail.com
         on_success: change
         on_failure: always
 # whitelist
 branches:
     only:
         - master
+
