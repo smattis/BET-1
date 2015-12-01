@@ -48,7 +48,7 @@ def cell_connectivity_exact(samples, io_ptr):
 def nearest_neighbor_orthant(samples, l_tree, radius):
     ball_points = l_Tree.query_ball_tree(l_Tree, radius, p=2.0)
     base_dict = {}
-    for i in range(samples):
+    #for i in range(samples):
     for i in range(samples.shape[0]):
         sample_ball = np.sign(samples[ball_points[i],:] - samples[i,:])
         sample_ball = sample_ball.astype(int)
@@ -73,6 +73,7 @@ class sampling_error(object):
                  samples,
                  lam_vol,
                  rho_D_M,
+                 rho_D_M_samples = None,
                  io_ptr= None,
                  data = None,
                  exact = True):
@@ -83,12 +84,15 @@ class sampling_error(object):
         if io_ptr == None:
             if len(samples.shape) == 1:
                 samples = np.expand_dims(samples, axis=1) 
-            if len(data.shape) == 1:
-                data = np.expand_dims(data, axis=1) 
+            if data != None:
+                if len(data.shape) == 1:
+                    data = np.expand_dims(data, axis=1) 
 
-            if len(rho_D_M) == 1:
-                rho_D_M = np.expand_dims(rho_D_M, axis=1)
-            d_Tree = spatial.KDTree(rho_D_M)
+            if len(rho_D_M_samples.shape) == 1:
+                rho_D_M_samples = np.expand_dims(rho_D_M_samples, axis=1)
+            #import pdb
+            #pdb.set_trace()
+            d_Tree = spatial.KDTree(rho_D_M_samples)
         
             # Determine which inputs go to which M bins using the QoI
             (_, io_ptr) = d_Tree.query(data)
@@ -123,7 +127,8 @@ class model_error(object):
                  data,
                  error_estimate,
                  lam_vol,
-                 rho_D_M):
+                 rho_D_M,
+                 rho_D_M_samples):
         self.lam_vol = lam_vol
         self.rho_D_M = rho_D_M
 
@@ -133,9 +138,9 @@ class model_error(object):
             data = np.expand_dims(data, axis=1)
         if len(error_estimate.shape) == 1:
             error_estimate = np.expand_dims(error_estimate, axis=1)
-        if len(rho_D_M) == 1:
-            rho_D_M = np.expand_dims(rho_D_M, axis=1)
-        d_Tree = spatial.KDTree(rho_D_M)
+        if len(rho_D_M_samples.shape) == 1:
+            rho_D_M_samples = np.expand_dims(rho_D_M, axis=1)
+        d_Tree = spatial.KDTree(rho_D_M_samples)
 
         # Determine which inputs go to which M bins using the QoI
         (_, self.io_ptr1) = d_Tree.query(data)
@@ -149,8 +154,8 @@ class model_error(object):
                 ind2 = np.equal(self.io_ptr2, i)
                 JiA = np.sum(self.lam_vol[ind1])
                 Ji = JiA
-                JiAe = np.sum(self.lam_vol[logical_and(ind1,ind2)])
+                JiAe = np.sum(self.lam_vol[np.logical_and(ind1,ind2)])
                 Jie = np.sum(self.lam_vol[ind2])
-                er_est += rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
+                er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
 
         return er_est
