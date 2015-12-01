@@ -16,6 +16,7 @@ import bet.calculateP.simpleFunP as simpleFunP
 import bet.calculateP.calculateP as calculateP
 import bet.calculateP.calculateError as calculateError
 import bet.postProcess.plotP as plotP
+from bet.Comm import comm, MPI 
 
 # parameter domain
 lam_domain= np.array([[0.0, 1.0],
@@ -48,7 +49,7 @@ if random_sample == False:
   n2 = 30 # number of samples in lam2 direction
   n_samples = n0*n1*n2
 else:
-  n_samples = 2E6  
+  n_samples = 5E4  
 
 #set up samples
 if random_sample == False:
@@ -124,10 +125,10 @@ Voronoi cell is assumed to have the same measure. This type of
 approximation is more reasonable for large n_samples due to the slow 
 convergence rate of Monte Carlo (it converges like 1/sqrt(n_samples)).
 '''
-if random_sample == False:
-  lambda_emulate = samples
-else:
-  lambda_emulate = calculateP.emulate_iid_lebesgue(lam_domain=lam_domain, num_l_emulate = 1E5)
+# if random_sample == False:
+#   lambda_emulate = samples
+# else:
+#   lambda_emulate = calculateP.emulate_iid_lebesgue(lam_domain=lam_domain, num_l_emulate = 1E5)
 
 
 # calculate probablities
@@ -170,22 +171,24 @@ else:
 
 #import pdb
 #pdb.set_trace()
-se = calculateError.sampling_error(samples, lam_vol, 
-                                   rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data)
-(h,l) = se.calculate_error_all()
-print h,l
 
-ee = 0.01*np.ones(data.shape)
-me = calculateError.model_error(samples,
-                               data,
-                               error_estimate = ee,
-                               lam_vol = lam_vol,
-                               rho_D_M = d_distr_prob,
-                               rho_D_M_samples = d_distr_samples)
+if comm.rank == 0:
+  se = calculateError.sampling_error(samples, lam_vol, 
+                                     rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data)
+  (h,l) = se.calculate_error_fraction(P, 0.5)
+  print h,l
 
-m = me. calculate_error_all()
+  ee = 0.01*np.ones(data.shape)
+  me = calculateError.model_error(samples,
+                                 data,
+                                 error_estimate = ee,
+                                 lam_vol = lam_vol,
+                                 rho_D_M = d_distr_prob,
+                                 rho_D_M_samples = d_distr_samples)
 
-print m
+  m = me. calculate_error_all()
 
-import pdb
-pdb.set_trace()
+  print m
+
+# import pdb
+# pdb.set_trace()

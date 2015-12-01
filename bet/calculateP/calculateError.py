@@ -2,6 +2,7 @@ from bet.Comm import comm, MPI
 import numpy as np
 import scipy.spatial as spatial
 import bet.util as util
+import bet.postProcess.postTools as postTools
 import math
 
 
@@ -77,7 +78,6 @@ class sampling_error(object):
                  io_ptr= None,
                  data = None,
                  exact = True):
-                       
         self.lam_vol = lam_vol
         self.rho_D_M = rho_D_M
         
@@ -96,6 +96,9 @@ class sampling_error(object):
         
             # Determine which inputs go to which M bins using the QoI
             (_, io_ptr) = d_Tree.query(data)
+            self.io_ptr = io_ptr
+
+        self.samples = samples
 
                    
         if exact:
@@ -121,6 +124,42 @@ class sampling_error(object):
                 lower_bound += self.rho_D_M[i]*min(term1,term2)  
         return (upper_bound, lower_bound)
 
+    def calculate_error_fraction(self,P, fraction=0.95):
+        #(num_samples, P_high, samples_high, lam_vol_high, data_high)= postTools.sample_highest_prob(top_percentile=fraction, P_samples=P, samples=self.samples, lam_vol=self.lam_vol,sort=True)
+        #(P_samples, samples, lam_vol, data, indices) = postTools.sort_by_rho(P_samples = P, samples = self.samples, lam_vol = self.lam_vol)
+
+        (num_samples, P_high, samples_high, lam_vol_high, _ , indices )= postTools.sample_highest_prob(top_percentile=fraction, P_samples=P, samples=self.samples, lam_vol=self.lam_vol,sort=True)
+
+        #import pdb
+        #pdb.set_trace()
+        lam_vol = np.zeros(self.lam_vol.shape)
+        lam_vol[indices] = self.lam_vol[indices]
+        #lam_vol[0:num_samples] = lam_vol_high
+        # import pdb
+        # pdb.set_trace()
+
+        upper_bound = 0.0
+        lower_bound = 0.0
+        for i in range(self.rho_D_M.shape[0]):
+            if self.rho_D_M[i] > 0.0:
+                e_list = np.equal(self.io_ptr, i)
+                E = np.sum(lam_vol[e_list])/np.sum(self.lam_vol[e_list])
+                if i in self.B_N:
+                    val1 = np.sum(lam_vol[self.B_N[i]])
+                    val2 = np.sum(self.lam_vol[self.B_N[i]])
+                else:
+                    return (float('nan'), float('nan'))
+                val3 = np.sum(lam_vol[self.C_N[i]])
+                val4 = np.sum(self.lam_vol[self.C_N[i]])
+
+                term1 = val1/val4 - E
+                term2 = val3/val2 - E
+                upper_bound += self.rho_D_M[i]*max(term1,term2)
+                lower_bound += self.rho_D_M[i]*min(term1,term2)  
+        return (upper_bound, lower_bound)
+        
+        
+
 class model_error(object):
     def __init__(self,
                  samples,
@@ -134,6 +173,8 @@ class model_error(object):
 
         if len(samples.shape) == 1:
             samples = np.expand_dims(samples, axis=1) 
+        self.samples = samples
+
         if len(data.shape) == 1:
             data = np.expand_dims(data, axis=1)
         if len(error_estimate.shape) == 1:
@@ -154,7 +195,41 @@ class model_error(object):
                 ind2 = np.equal(self.io_ptr2, i)
                 JiA = np.sum(self.lam_vol[ind1])
                 Ji = JiA
-                JiAe = np.sum(self.lam_vol[np.logical_and(ind1,ind2)])
+                JiAe = np.sum(self.lam_vol[ind2]) #np.sum(self.lam_vol[np.logical_and(ind1,ind2)])
+                Jie = np.sum(self.lam_vol[ind2])
+                er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
+
+        return er_est
+        # (num_samples, P_high, samples_high, lam_vol_high, _ , indices )= postTools.sample_highest_prob(top_percentile=fraction, P_samples=P, samples=self.samples, lam_vol=self.lam_vol,sort=True)
+        # lam_vol = np.zeros(self.lam_vol.shape)
+        # lam_vol[indices] = self.lam_vol[indices]
+
+        # er_est = 0.0
+        # for i in range(self.rho_D_M.shape[0]):
+        #     if self.rho_D_M[i] > 0.0:
+        #         ind1 = np.equal(self.io_ptr1, i)
+        #         ind2 = np.equal(self.io_ptr2, i)
+        #         JiA = np.sum(lam_vol[ind1])
+        #         Ji = np.sum(self.lam_vol[ind1])
+        #         JiAe = np.sum(lam_vol[ind2])
+        #         Jie = np.sum(self.lam_vol[ind2])
+        #         er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
+
+        # return er_est
+
+    def calculate_error_fraction(self,P, fraction=0.95):
+        (num_samples, P_high, samples_high, lam_vol_high, _ , indices )= postTools.sample_highest_prob(top_percentile=fraction, P_samples=P, samples=self.samples, lam_vol=self.lam_vol,sort=True)
+        lam_vol = np.zeros(self.lam_vol.shape)
+        lam_vol[indices] = self.lam_vol[indices]
+
+        er_est = 0.0
+        for i in range(self.rho_D_M.shape[0]):
+            if self.rho_D_M[i] > 0.0:
+                ind1 = np.equal(self.io_ptr1, i)
+                ind2 = np.equal(self.io_ptr2, i)
+                JiA = np.sum(lam_vol[ind1])
+                Ji = np.sum(self.lam_vol[ind1])
+                JiAe = np.sum(lam_vol[ind2])
                 Jie = np.sum(self.lam_vol[ind2])
                 er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
 
