@@ -50,7 +50,7 @@ if random_sample == False:
   n2 = 30 # number of samples in lam2 direction
   n_samples = n0*n1*n2
 else:
-  n_samples = 1E6  
+  n_samples = 1E5  
 
 #set up samples
 if random_sample == False:
@@ -71,7 +71,7 @@ Q_ref =  np.dot(np.array(ref_lam), Q_map)
 
 # calc data
 data= np.dot(samples,Q_map)
-data_e = data + 0.01*rand.rand(data.shape[0],data.shape[1])- 0.005
+data_e = data + 0.02*rand.rand(data.shape[0],data.shape[1])- 0.01
 np.savetxt('3to2_samples.txt.gz', samples)
 np.savetxt('3to2_data.txt.gz', data)
 
@@ -177,8 +177,10 @@ convergence rate of Monte Carlo (it converges like 1/sqrt(n_samples)).
 if comm.rank == 0:
   se = calculateError.sampling_error(samples, lam_vol, 
                                      rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data_e)
-  (h,l) = se.calculate_error_fraction(P, 0.5)
-  print h,l
+  #(h,l) = se.calculate_error_fraction(P, 1.0)
+  (h,l) = se.calculate_error_contour_events()
+  print h
+  print l
 
   #ee = 0.01*np.ones(data.shape)
   me = calculateError.model_error(samples,
@@ -188,9 +190,19 @@ if comm.rank == 0:
                                  rho_D_M = d_distr_prob,
                                  rho_D_M_samples = d_distr_samples)
 
-  m = me. calculate_error_fraction(P, 0.5)
+  #m = me. calculate_error_fraction(P, 1.0)
+  m = me.calculate_error_contour_events()
 
   print m
 
 # import pdb
 # pdb.set_trace()
+(bins, marginals2D) = plotP.calculate_2D_marginal_probs(P_samples = P, samples = samples, lam_domain = lam_domain, nbins = [10, 10])
+# # smooth 2d marginals probs (optional)
+# marginals2D = plotP.smooth_marginals_2D(marginals2D,bins, sigma=0.1)
+#import pdb
+#pdb.set_trace()
+# # plot 2d marginals probs
+plotP.plot_2D_marginal_probs(marginals2D, bins, lam_domain, filename = "linMap",
+                             plot_surface=False)
+
