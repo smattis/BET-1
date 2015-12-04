@@ -205,7 +205,7 @@ class sampling_error(object):
                 indices = np.equal(self.io_ptr,i)
                 in_Ai = indices[ptr1]
                 E = np.sum(np.logical_and(in_v, in_Ai))/np.sum(in_Ai)
-                
+               
                 # should be faster way
                 in_B_N = np.zeros(in_v.shape, dtype=np.bool)
                 for j in self.B_N[i]:
