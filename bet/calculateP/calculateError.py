@@ -2,6 +2,7 @@ from bet.Comm import comm, MPI
 import numpy as np
 import scipy.spatial as spatial
 import bet.util as util
+import bet.calculateP.calculateP as calculateP
 import bet.postProcess.postTools as postTools
 import math
 
@@ -188,14 +189,16 @@ class sampling_error(object):
                 lower_bound += self.rho_D_M[i]*min(term1,term2)  
         return (upper_bound, lower_bound)
     
-    def calculate_error_voronoi(self, lam_domain, samples_v, id_v, num_l_emulate):
+    def calculate_error_voronoi(self, lam_domain, samples_A, id_A, num_l_emulate):
         lambda_emulate = calculateP.emulate_iid_lebesgue(lam_domain, num_l_emulate)
         l_tree1 = spatial.KDTree(self.samples)
-        l_tree2 = spatial.KDTree(self.samples_v)
+        l_tree2 = spatial.KDTree(samples_A)
         
-        ptr1 = l_tree1.query(lambda_emulate)
-        ptr2 = l_tree2.query(lambda_emulate)
-        in_v = id_v[ptr2]
+        ptr1 = l_tree1.query(lambda_emulate)[1]
+        ptr2 = l_tree2.query(lambda_emulate)[1]
+        #import pdb
+        #pdb.set_trace()
+        in_A = id_A[ptr2]
 
         upper_bound = 0.0
         lower_bound = 0.0
@@ -204,17 +207,25 @@ class sampling_error(object):
             if self.rho_D_M[i] > 0.0:
                 indices = np.equal(self.io_ptr,i)
                 in_Ai = indices[ptr1]
-                E = np.sum(np.logical_and(in_v, in_Ai))/np.sum(in_Ai)
+                E = float(np.sum(np.logical_and(in_A, in_Ai)))/float(np.sum(in_Ai))
                
+                #import pdb
+                # pdb.set_trace()
                 # should be faster way
-                in_B_N = np.zeros(in_v.shape, dtype=np.bool)
+                in_B_N = np.zeros(in_A.shape, dtype=np.bool)
                 for j in self.B_N[i]:
                     in_B_N = np.logical_or(np.equal(ptr1,j),in_B_N)
 
-                in_C_N = np.zeros(in_v.shape, dtype=np.bool)
+                in_C_N = np.zeros(in_A.shape, dtype=np.bool)
                 for j in self.C_N[i]:
                     in_C_N =  np.logical_or(np.equal(ptr1,j), in_C_N)
-                    
+                #pdb.set_trace()
+                term1 = float(np.sum(np.logical_and(in_A,in_B_N)))/float(np.sum(in_C_N))- E
+                term2 = float(np.sum(np.logical_and(in_A,in_C_N)))/float(np.sum(in_B_N))- E
+                upper_bound += self.rho_D_M[i]*max(term1,term2)
+                lower_bound += self.rho_D_M[i]*min(term1,term2)  
+        return (upper_bound, lower_bound)
+                
 
         
 
@@ -307,6 +318,29 @@ class model_error(object):
                 Ji = np.sum(self.lam_vol[ind1])
                 JiAe = np.sum(lam_vol[ind2])
                 Jie = np.sum(self.lam_vol[ind2])
+                er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
+
+        return er_est
+
+    def calculate_error_voronoi(self, lam_domain, samples_A, id_A, num_l_emulate):
+        lambda_emulate = calculateP.emulate_iid_lebesgue(lam_domain, num_l_emulate)
+        l_tree1 = spatial.KDTree(self.samples)
+        l_tree2 = spatial.KDTree(samples_A)
+        ptr1 = l_tree1.query(lambda_emulate)[1]
+        ptr2 = l_tree2.query(lambda_emulate)[1]
+
+        in_A = id_A[ptr2]
+        er_est = 0.0
+        for i in range(self.rho_D_M.shape[0]):
+            if self.rho_D_M[i] > 0.0:
+                indices1 = np.equal(self.io_ptr1,i)
+                in_Ai1 = indices1[ptr1]
+                indices2 = np.equal(self.io_ptr2,i)
+                in_Ai2 = indices2[ptr1]
+                JiA = float(np.sum(np.logical_and(in_A,in_Ai1)))
+                Ji = float(np.sum(in_Ai1))
+                JiAe = float(np.sum(np.logical_and(in_A,in_Ai2)))
+                Jie = float(np.sum(in_Ai2))
                 er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
 
         return er_est

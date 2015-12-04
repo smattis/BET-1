@@ -62,7 +62,8 @@ if random_sample == False:
 else:
   samples = calculateP.emulate_iid_lebesgue(lam_domain=lam_domain, 
 					    num_l_emulate = n_samples)
-
+samples_v = calculateP.emulate_iid_lebesgue(lam_domain=lam_domain, 
+					    num_l_emulate = 100)
 # QoI map
 Q_map = np.array([[0.503],[0.253]])
 
@@ -71,7 +72,7 @@ Q_ref =  np.dot(np.array(ref_lam), Q_map)
 
 # calc data
 data= np.dot(samples,Q_map)
-data_e = data + 0.02*rand.rand(data.shape[0],data.shape[1])- 0.01
+data_e = data + 0.1*rand.rand(data.shape[0],data.shape[1])- 0.05
 np.savetxt('3to2_samples.txt.gz', samples)
 np.savetxt('3to2_data.txt.gz', data)
 
@@ -178,7 +179,10 @@ if comm.rank == 0:
   se = calculateError.sampling_error(samples, lam_vol, 
                                      rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data_e)
   #(h,l) = se.calculate_error_fraction(P, 1.0)
-  (h,l) = se.calculate_error_contour_events()
+  #(h,l) = se.calculate_error_contour_events()
+  bv = np.ones((samples_v.shape[0],),dtype = np.bool)
+  bv[0:50] = False
+  (h,l) = se.calculate_error_voronoi(lam_domain, samples_v ,bv, 10000)
   print h
   print l
 
@@ -191,8 +195,8 @@ if comm.rank == 0:
                                  rho_D_M_samples = d_distr_samples)
 
   #m = me. calculate_error_fraction(P, 1.0)
-  m = me.calculate_error_contour_events()
-
+  #m = me.calculate_error_contour_events()
+  m = me.calculate_error_voronoi(lam_domain, samples_v ,bv, 10000)
   print m
 
 # import pdb
