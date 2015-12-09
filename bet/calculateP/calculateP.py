@@ -275,6 +275,33 @@ def estimate_volume(samples, lambda_emulate=None):
 
 
     
+def exact_volume(samples):
+    r"""
+    Estimate the volume fraction of the Voronoi cells associated with
+    ``samples`` using ``lambda_emulate`` as samples for Monte Carlo
+    integration. Specifically we are estimating 
+    :math:`\mu_\Lambda(\mathcal(V)_{i,N} \cap A)/\mu_\Lambda(\Lambda)`.
+    
+    :param samples: The samples in parameter space for which the model was run.
+    :type samples: :class:`~numpy.ndarray` of shape (num_samples, ndim)
+    :param lambda_emulate: Samples used to partition the parameter space
+    :type lambda_emulate: :class:`~numpy.ndarray` of shape (num_l_emulate, ndim)
 
+    :rtype: tuple
+    :returns: (lam_vol, lam_vol_local, local_index) where ``lam_vol`` is the
+        global array of volume fractions, ``lam_vol_local`` is the local array
+        of volume fractions, and ``local_index`` a list of the global indices
+        for local arrays on this particular processor ``lam_vol_local =
+        lam_vol[local_index]``
     
-    
+    """
+    vor = spatial.Voronoi(samples)
+
+    for i,val in enumerate(vor.point_region):
+        region = vor.regions[val]
+        if not -1 in region:
+            polygon = [vor.vertices[i] for i in region]
+            import pdb
+            pdb.set_trace()
+            #del = Delaunay(polygon)
+            
