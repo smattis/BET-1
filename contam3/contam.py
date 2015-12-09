@@ -19,11 +19,13 @@ import bet.calculateP.calculateError as calculateError
 import bet.postProcess.plotP as plotP
 from bet.Comm import comm, MPI 
 from math import *
+import copy
 
 # parameter domain
 lam_domain= np.array([[10.0, 50.0],
                       [0.0, pi/2.0]])
                       
+lam_domain_old = copy.copy(lam_domain)
 
 # reference parameters
 ref_lam = [30.0, pi/5.0] #, 0.5]
@@ -64,14 +66,14 @@ Then also try n_samples = 1E4. What happens when n_samples = 1E2?
 #   samples = calculateP.emulate_iid_lebesgue(lam_domain=lam_domain, 
 # 					    num_l_emulate = n_samples)
 inds = [2]
-samples = np.loadtxt("results/samples.txt")[0:10000,:]#[:,inds]
+samples = np.loadtxt("results2/samples.txt")#[:,inds]
 samples = samples - lam_domain[:,0]
 samples = samples/(lam_domain[:,1]-lam_domain[:,0])
 lam_domain = np.array([[0.0,1.0], [0.0,1.0]])
 #data_true = np.loadtxt("results/data_fine.txt")[:,inds]
 #data = np.loadtxt("results/data.txt")[:,inds]
-data = np.loadtxt("results/data_fine.txt")[:,inds]
-ee = np.loadtxt("results/ee.txt")[:,inds]
+data = np.loadtxt("results2/data_fine.txt")[:,inds]
+ee = np.loadtxt("results2/ee.txt")[:,inds]
 #ee = np.zeros(data.shape)
 #ee = data_true - data
 
@@ -189,6 +191,9 @@ if comm.rank == 0:
   #(h,l) = se.calculate_error_fraction(P, 1.0)
   (h,l) = se.calculate_error_contour_events()
   print h,l
+samples_new = se.get_new_samples(lam_domain = lam_domain, num_l_emulate=100, index =1)
+samples_new = (lam_domain_old[:,1] - lam_domain_old[:,0]) * samples_new + lam_domain_old[:,0]
+np.savetxt("samples_new.txt", samples_new)
 
 #   #ee = 0.01*np.ones(data.shape)
 #   me = calculateError.model_error(samples,
@@ -203,8 +208,10 @@ if comm.rank == 0:
 
 #   print m
 
-# # import pdb
-# # pdb.set_trace()
+# import pdb
+# pdb.set_trace()
+
+
 import matplotlib.pyplot as plt
 from scipy.spatial import Voronoi, voronoi_plot_2d
 vor = Voronoi(samples)
@@ -217,13 +224,13 @@ vor = Voronoi(samples)
 fig = plt.figure()
 plt.axis([0, 1, 0, 1])
 plt.hold(True)
-plt.plot(vor.vertices[:,0], vor.vertices[:, 1], 'ko', ms=1)
-for vpair in vor.ridge_vertices:
-    if vpair[0] >= 0 and vpair[1] >= 0:
-        v0 = vor.vertices[vpair[0]]
-        v1 = vor.vertices[vpair[1]]
-        # Draw a line from v0 to v1.
-        plt.plot([v0[0], v1[0]], [v0[1], v1[1]], 'k', linewidth=0.5)
+#plt.plot(vor.vertices[:,0], vor.vertices[:, 1], 'ko', ms=1)
+# for vpair in vor.ridge_vertices:
+#     if vpair[0] >= 0 and vpair[1] >= 0:
+#         v0 = vor.vertices[vpair[0]]
+#         v1 = vor.vertices[vpair[1]]
+#         # Draw a line from v0 to v1.
+#         plt.plot([v0[0], v1[0]], [v0[1], v1[1]], 'k', linewidth=0.1)
 # import pdb
 # pdb.set_trace()
 for i,val in enumerate(vor.point_region):
@@ -233,11 +240,15 @@ for i,val in enumerate(vor.point_region):
       polygon = [vor.vertices[i] for i in region]
       ##import pdb
       ##pdb.set_trace()
+      #kw = {'color':'r', 'edgecolor': 'r'}
       z = zip(*polygon)
-      plt.fill(z[0], z[1], 'r')
+      plt.fill(z[0], z[1],color='r' , edgecolor = 'k', linewidth = 0.2)
 #for i in range(samples.shape[0]):
 #  if P[i] > 0.0:
 #    plt.fill(samples[i,0], samples[i,1], 'r')
 #plt.show()
 
 plt.show()
+
+import pdb
+pdb.set_trace()

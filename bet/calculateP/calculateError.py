@@ -225,6 +225,32 @@ class sampling_error(object):
                 upper_bound += self.rho_D_M[i]*max(term1,term2)
                 lower_bound += self.rho_D_M[i]*min(term1,term2)  
         return (upper_bound, lower_bound)
+
+    def get_new_samples(self, lam_domain, num_l_emulate=100, index = 0):
+
+        l_tree = spatial.KDTree(self.samples)
+        samples_new = np.zeros((2*num_l_emulate, self.samples.shape[1]))
+
+        refine_list = list(set(self.C_N[index]) - set(self.B_N[index]))
+
+        go = True
+        counter = 0
+        while go:
+            print counter 
+            lambda_emulate = calculateP.emulate_iid_lebesgue(lam_domain, num_l_emulate)
+            ptr = l_tree.query(lambda_emulate)[1]
+            in_refine = np.zeros((num_l_emulate,), dtype=np.bool)
+            for j in refine_list:
+                in_refine = np.logical_or(in_refine, np.equal(ptr,j))
+            num_new = int(np.sum(in_refine))
+            samples_new[counter:counter+num_new ,:] = lambda_emulate[in_refine,:]
+            counter += num_new 
+            if counter > num_l_emulate:
+                go = False
+        return samples_new[0:num_l_emulate,:]
+            
+            
+        
                 
 
         
