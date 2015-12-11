@@ -13,6 +13,8 @@ from bet.Comm import comm, MPI
 import numpy as np
 import scipy.spatial as spatial
 import bet.util as util
+import numpy.linalg as linalg
+from math import *
 
 def emulate_iid_lebesgue(lam_domain, num_l_emulate):
     """
@@ -224,6 +226,75 @@ def prob_mc(samples, data, rho_D_M, d_distr_samples,
     P[global_index] = P_global[:]
     return (P, lam_vol, lambda_emulate, io_ptr, emulate_ptr)
 
+def prob_exact(samples, data, rho_D_M, d_distr_samples,
+            lam_domain, side_ratio=0.1, d_Tree=None): 
+    r"""
+    Calculates :math:`P_{\Lambda}(\mathcal{V}_{\lambda_{samples}})`, the
+    probability assoicated with a set of voronoi cells defined by the model
+    solves at :math:`(\lambda_{samples})` where the volumes of these voronoi
+    cells are approximated using MC integration.
+
+    :param samples: The samples in parameter space for which the model was run.
+    :type samples: :class:`~numpy.ndarray` of shape (num_samples, ndim)
+    :param data: The data from running the model given the samples.
+    :type data: :class:`~numpy.ndarray` of size (num_samples, mdim)
+    :param rho_D_M: The simple function approximation of rho_D
+    :type rho_D_M: :class:`~numpy.ndarray` of shape  (M,) 
+    :param d_distr_samples: The samples in the data space that define a
+        parition of D to for the simple function approximation
+    :type d_distr_samples: :class:`~numpy.ndarray` of shape  (M, mdim) 
+    :param d_Tree: :class:`~scipy.spatial.KDTree` for d_distr_samples
+    :param lambda_emulate: Samples used to estimate the volumes of the Voronoi
+        cells associated with ``samples``
+
+    :rtype: tuple of :class:`~numpy.ndarray` of sizes (num_samples,),
+        (num_samples,), (ndim, num_l_emulate), (num_samples,), (num_l_emulate,)
+    :returns: (P, lam_vol, lambda_emulate, io_ptr, emulate_ptr) where P is the
+        probability associated with samples, lam_vol the volumes associated
+        with the samples, io_ptr a pointer from data to M bins, and emulate_ptr
+        a pointer from emulated samples to samples (in parameter space)
+
+    """
+    if len(samples.shape) == 1:
+        samples = np.expand_dims(samples, axis=1) 
+    if len(data.shape) == 1:
+        data = np.expand_dims(data, axis=1) 
+    if len(d_distr_samples.shape) == 1:
+        d_distr_samples = np.expand_dims(d_distr_samples, axis=1)
+    if d_Tree is None:
+        d_Tree = spatial.KDTree(d_distr_samples)
+        
+    # Determine which inputs go to which M bins using the QoI
+    (_, io_ptr) = d_Tree.query(data)
+    
+    # Determine which emulated samples match with which model run samples
+    #l_Tree = spatial.KDTree(samples)
+    #(_, emulate_ptr) = l_Tree.query(lambda_emulate)
+
+    lam_vol = exact_volume(samples, lam_domain, side_ratio)
+
+    # local_array = np.array(local_index, dtype='int64')
+    # data_local = data[local_index, :]
+    # samples_local = samples[local_index, :]
+    
+    
+    # # Determine which inputs go to which M bins using the QoI
+    # (_, io_ptr_local) = d_Tree.query(data_local)
+
+    # Calculate Probabilities
+    P = np.zeros((samples.shape[0],))
+    for i in range(rho_D_M.shape[0]):
+        Itemp = np.equal(io_ptr, i)
+        Itemp_sum = np.sum(lam_vol[Itemp])
+        #Itemp_sum = comm.allreduce(Itemp_sum, op=MPI.SUM)
+        if Itemp_sum > 0:
+            P[Itemp] = rho_D_M[i]*lam_vol[Itemp]/Itemp_sum 
+    #P_global = util.get_global_values(P_local)
+    #global_index = util.get_global_values(local_array)
+    #P = np.zeros(P_global.shape)
+    #P[global_index] = P_global[:]
+    return (P, lam_vol, io_ptr)
+
 def estimate_volume(samples, lambda_emulate=None):
     r"""
     Estimate the volume fraction of the Voronoi cells associated with
@@ -275,7 +346,7 @@ def estimate_volume(samples, lambda_emulate=None):
 
 
     
-def exact_volume(samples):
+def exact_volume(samples, lam_domain, side_ratio = 0.1):
     r"""
     Estimate the volume fraction of the Voronoi cells associated with
     ``samples`` using ``lambda_emulate`` as samples for Monte Carlo
@@ -295,13 +366,99 @@ def exact_volume(samples):
         lam_vol[local_index]``
     
     """
-    vor = spatial.Voronoi(samples)
+    (n_samp, ndim) = samples.shape
+    if ndim == 1:
+        add_points = np.zeros((2,0))
+        val = np.min(samples)
+        add_points[0] = -val 
+        val = np.max(samples)
+        add_points[1] = 2.0*lam_domain[0][1] - val 
+        samples = np.vstack((samples,add_points))
+    elif ndim == 2:
+        add_points = np.less(samples[:,0], lam_domain[0][0]+side_ratio*(lam_domain[0][1] - lam_domain[0][0]))
+        points_new = samples[add_points,:]
+        points_new[:,0] = lam_domain[0][0] - (points_new[:,0]-lam_domain[0][0])
+        samples = np.vstack((samples, points_new))
 
-    for i,val in enumerate(vor.point_region):
+
+        add_points = np.greater(samples[:,0], lam_domain[0][1]-side_ratio*(lam_domain[0][1] - lam_domain[0][0]))
+        points_new = samples[add_points,:]
+        points_new[:,0] = lam_domain[0][1] + (-points_new[:,0]+lam_domain[0][1])
+        samples = np.vstack((samples, points_new))
+
+        add_points = np.less(samples[:,1], lam_domain[1][0]+side_ratio*(lam_domain[1][1] - lam_domain[1][0]))
+        points_new = samples[add_points,:]
+        points_new[:,1] = lam_domain[1][0] - (points_new[:,1]-lam_domain[1][0])
+        samples = np.vstack((samples, points_new))
+
+
+        add_points = np.greater(samples[:,1], lam_domain[1][1]-side_ratio*(lam_domain[1][1] - lam_domain[1][0]))
+        points_new = samples[add_points,:]
+        points_new[:,1] = lam_domain[1][1] + (-points_new[:,1]+lam_domain[1][1])
+        samples = np.vstack((samples, points_new))
+
+        # add_points = np.linspace(lam_domain[0][0], lam_domain[0][1], points_per_edge[0])
+        # add_points1 = np.zeros((len(add_points),2))
+        # add_points1[:,0] = add_points
+        # add_points1[:,1] = lam_domain[1][0]
+        # samples = np.vstack((samples,add_points1))
+        
+        # add_points1 = np.zeros((len(add_points),2))
+        # add_points1[:,0] = add_points
+        # add_points1[:,1] = lam_domain[1][1]
+        # samples = np.vstack((samples,add_points1))
+
+        # add_points = np.linspace(lam_domain[1][0], lam_domain[1][1], points_per_edge[1])
+        # add_points1 = np.zeros((len(add_points),2))
+        # add_points1[:,0] = add_points
+        # add_points1[:,1] = lam_domain[0][0]
+        # samples = np.vstack((samples,add_points1))
+        
+        # add_points1 = np.zeros((len(add_points),2))
+        # add_points1[:,0] = add_points
+        # add_points1[:,1] = lam_domain[0][1]
+        # samples = np.vstack((samples,add_points1))
+    else:
+        exit(1)
+        
+    # new_list = []
+    # ind_set = set(range(ndim))
+    # for i in range(ndim):
+    #     x = [np.linspace(lam_domain[i][0], lam_domain[i][1],10)]
+    #     for j in list(ind_set-i):
+    #         x.append(lam_domain[j,:])
+    #     new_samples = 
+    vor = spatial.Voronoi(samples)
+    # ndim = samples.shape[1]
+    lam_vol = np.zeros((n_samp,))
+    #import pdb
+    #pdb.set_trace()
+
+    for i in range(n_samp):
+        val =vor.point_region[i]
         region = vor.regions[val]
         if not -1 in region:
-            polygon = [vor.vertices[i] for i in region]
-            import pdb
-            pdb.set_trace()
-            #del = Delaunay(polygon)
-            
+            polygon = [vor.vertices[k] for k in region]
+            #import pdb
+            #pdb.set_trace()
+            delan = spatial.Delaunay(polygon)
+            simplices = delan.points[delan.simplices]
+            vol = 0.0
+            for j in range(simplices.shape[0]):
+                mat = np.empty((ndim,ndim))
+                mat[:,:] = (simplices[j][1::,:] - simplices[j][0,:]).transpose()
+                #import pdb
+                #pdb.set_trace()
+                vol += abs(1.0/factorial(ndim)*linalg.det(mat))
+            #if vol > 1.0:
+                #import pdb
+                #pdb.set_trace()
+            lam_vol[i] = vol
+    #import pdb
+    #pdb.set_trace()
+    lam_size = np.prod(lam_domain[:,1] - lam_domain[:,0])
+    #import pdb
+    #pdb.set_trace()
+    lam_vol  = lam_vol/lam_size
+    return lam_vol
+

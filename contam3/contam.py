@@ -66,13 +66,13 @@ Then also try n_samples = 1E4. What happens when n_samples = 1E2?
 #   samples = calculateP.emulate_iid_lebesgue(lam_domain=lam_domain, 
 # 					    num_l_emulate = n_samples)
 inds = [2]
-samples = np.loadtxt("results2/samples.txt")#[:,inds]
+samples = np.loadtxt("results2/samples.txt")[0:500,:]#[:,inds]
 samples = samples - lam_domain[:,0]
 samples = samples/(lam_domain[:,1]-lam_domain[:,0])
 lam_domain = np.array([[0.0,1.0], [0.0,1.0]])
 #data_true = np.loadtxt("results/data_fine.txt")[:,inds]
 #data = np.loadtxt("results/data.txt")[:,inds]
-data = np.loadtxt("results2/data_fine.txt")[:,inds]
+data = np.loadtxt("results2/data_fine.txt")[:,inds][0:500,:]
 ee = np.loadtxt("results2/ee.txt")[:,inds]
 #ee = np.zeros(data.shape)
 #ee = data_true - data
@@ -111,8 +111,11 @@ a total of 9 contour events with 8 of them having exactly zero probability.
 deterministic_discretize_D = True
 
 if deterministic_discretize_D == True:
-  (d_distr_prob, d_distr_samples, d_Tree) = simpleFunP.uniform_hyperrectangle(data=data,
-                                              Q_ref=Q_ref, bin_ratio=0.5, center_pts_per_edge = 1)
+  # (d_distr_prob, d_distr_samples, d_Tree) = simpleFunP.uniform_hyperrectangle(data=data,
+  #                                             Q_ref=Q_ref, bin_ratio=0.5, center_pts_per_edge = 1
+                                                                              #)
+  (d_distr_prob, d_distr_samples, d_Tree) = simpleFunP.uniform_hyperrectangle_binsize(data=data,
+                                              Q_ref=Q_ref, bin_size = [0.01417567], center_pts_per_edge = 1)
 else:
   (d_distr_prob, d_distr_samples, d_Tree) = simpleFunP.unif_unif(data=data,
                                               Q_ref=Q_ref, M=50, bin_ratio=0.2, num_d_emulate=1E5)
@@ -151,7 +154,8 @@ convergence rate of Monte Carlo (it converges like 1/sqrt(n_samples)).
 #                                                                     d_distr_sa#mples=d_distr_samples,
 #                                                                     lambda_emu#late=lambda_emulate,
 #                                                                     d_Tree=d_Tree)
-(P, lam_vol, io_ptr) = calculateP.prob(samples, data, d_distr_prob, d_distr_samples)
+#(P, lam_vol, io_ptr) = calculateP.prob(samples, data, d_distr_prob, d_distr_samples)
+(P, lam_vol, io_ptr) = calculateP.prob_exact(samples, data, d_distr_prob, d_distr_samples, lam_domain)
 # # calculate 2d marginal probs
 # '''
 # Suggested changes for user:
@@ -190,8 +194,9 @@ if comm.rank == 0:
                                      rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data)
   #(h,l) = se.calculate_error_fraction(P, 1.0)
   (h,l) = se.calculate_error_contour_events()
+  (h,l) = se.calculate_error_hyperbox(lam_domain, np.array([[0.2,0.5],[0.2,0.5]]), int(1.0E3))
   print h,l
-samples_new = se.get_new_samples(lam_domain = lam_domain, num_l_emulate=100, index =1)
+samples_new = se.get_new_samples(lam_domain = lam_domain, num_l_emulate=20, index =1)
 samples_new = (lam_domain_old[:,1] - lam_domain_old[:,0]) * samples_new + lam_domain_old[:,0]
 np.savetxt("samples_new.txt", samples_new)
 
@@ -248,7 +253,8 @@ for i,val in enumerate(vor.point_region):
 #    plt.fill(samples[i,0], samples[i,1], 'r')
 #plt.show()
 
-plt.show()
+#plt.show()
+plt.savefig("coarse.eps")
 
 import pdb
 pdb.set_trace()

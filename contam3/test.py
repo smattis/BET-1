@@ -66,7 +66,7 @@ Then also try n_samples = 1E4. What happens when n_samples = 1E2?
 #   samples = calculateP.emulate_iid_lebesgue(lam_domain=lam_domain, 
 # 					    num_l_emulate = n_samples)
 inds = [2]
-samples = np.loadtxt("results2/samples.txt")#[:,inds]
+samples = np.loadtxt("results2/samples.txt")[0:100000,:]#[:,inds]
 samples = samples - lam_domain[:,0]
 samples = samples/(lam_domain[:,1]-lam_domain[:,0])
 lam_domain = np.array([[0.0,1.0], [0.0,1.0]])
@@ -84,7 +84,9 @@ ee = np.loadtxt("results2/ee.txt")[:,inds]
 Q_ref =  np.array([0.007565667633600828,0.013768501998185518,0.016950964573704413]) #np.dot(np.array(ref_lam), Q_map)
 Q_ref = Q_ref[inds]
 
-calculateP.exact_volume(samples)
+# import pdb
+# pdb.set_trace()
+calculateP.exact_volume(samples, lam_domain) #, (2000,2000))
 
 
 '''
