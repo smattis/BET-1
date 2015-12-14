@@ -66,14 +66,23 @@ Then also try n_samples = 1E4. What happens when n_samples = 1E2?
 #   samples = calculateP.emulate_iid_lebesgue(lam_domain=lam_domain, 
 # 					    num_l_emulate = n_samples)
 inds = [2]
-samples = np.loadtxt("results2/samples.txt")[0:500,:]#[:,inds]
+samples = np.loadtxt("results3/samples.txt")#[0:10000,:]#[:,inds]
+samples_new = np.loadtxt("results3/samples_new.txt")
+samples_new2 = np.loadtxt("results3/samples_new2.txt")
+samples = np.vstack((samples, samples_new, samples_new2))
 samples = samples - lam_domain[:,0]
 samples = samples/(lam_domain[:,1]-lam_domain[:,0])
 lam_domain = np.array([[0.0,1.0], [0.0,1.0]])
 #data_true = np.loadtxt("results/data_fine.txt")[:,inds]
 #data = np.loadtxt("results/data.txt")[:,inds]
-data = np.loadtxt("results2/data_fine.txt")[:,inds][0:500,:]
-ee = np.loadtxt("results2/ee.txt")[:,inds]
+data_true = np.loadtxt("results3/data_fine.txt")[:,inds]#[0:500,:]
+data_new = np.loadtxt("results3/data_new.txt")[:,inds]
+data_new2 = np.loadtxt("results3/data_new2.txt")[:,inds]
+
+data_true = np.vstack((data_true,data_new, data_new2))
+data = data_true
+#data = np.loadtxt("results3/data_coarse.txt")[:,inds][0:10000,:]
+#ee = np.loadtxt("results3/ee.txt")[:,inds][0:10000,:]
 #ee = np.zeros(data.shape)
 #ee = data_true - data
 
@@ -194,19 +203,21 @@ if comm.rank == 0:
                                      rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data)
   #(h,l) = se.calculate_error_fraction(P, 1.0)
   (h,l) = se.calculate_error_contour_events()
-  (h,l) = se.calculate_error_hyperbox(lam_domain, np.array([[0.2,0.5],[0.2,0.5]]), int(1.0E3))
+  #(h,l) = se.calculate_error_hyperbox(lam_domain, np.array([[0.2,0.5],[0.2,0.5]]), int(1.0E3))
   print h,l
-samples_new = se.get_new_samples(lam_domain = lam_domain, num_l_emulate=20, index =1)
-samples_new = (lam_domain_old[:,1] - lam_domain_old[:,0]) * samples_new + lam_domain_old[:,0]
-np.savetxt("samples_new.txt", samples_new)
+#samples_new = se.get_new_samples(lam_domain = lam_domain, num_l_emulate=10000, index =1)
+#samples_new = (lam_domain_old[:,1] - lam_domain_old[:,0]) * samples_new + lam_domain_old[:,0]
+#np.savetxt("samples_new.txt", samples_new)
 
 #   #ee = 0.01*np.ones(data.shape)
-#   me = calculateError.model_error(samples,
-#                                  data,
-#                                  error_estimate = ee,
-#                                  lam_vol = lam_vol,
-#                                  rho_D_M = d_distr_prob,
-#                                  rho_D_M_samples = d_distr_samples)
+# me = calculateError.model_error(samples,
+#                                 data,
+#                                 error_estimate = ee,
+#                                 lam_vol = lam_vol,
+#                                 rho_D_M = d_distr_prob,
+#                                 rho_D_M_samples = d_distr_samples)
+# m = me.calculate_error_contour_events()
+# print m
 
 #   m = me. calculate_error_fraction(P, 1.0)
 #   #m = me. calculate_error_all()
@@ -247,7 +258,7 @@ for i,val in enumerate(vor.point_region):
       ##pdb.set_trace()
       #kw = {'color':'r', 'edgecolor': 'r'}
       z = zip(*polygon)
-      plt.fill(z[0], z[1],color='r' , edgecolor = 'k', linewidth = 0.2)
+      plt.fill(z[0], z[1],color='r' , edgecolor = 'k', linewidth = 0.005)
 #for i in range(samples.shape[0]):
 #  if P[i] > 0.0:
 #    plt.fill(samples[i,0], samples[i,1], 'r')
