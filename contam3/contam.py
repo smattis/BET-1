@@ -67,20 +67,26 @@ Then also try n_samples = 1E4. What happens when n_samples = 1E2?
 # 					    num_l_emulate = n_samples)
 inds = [2]
 samples = np.loadtxt("results3/samples.txt")#[0:10000,:]#[:,inds]
-samples_new = np.loadtxt("results3/samples_new.txt")
-samples_new2 = np.loadtxt("results3/samples_new2.txt")
-samples = np.vstack((samples, samples_new, samples_new2))
+#samples_new = np.loadtxt("results3/samples_new.txt")
+#samples_new2 = np.loadtxt("results3/samples_new2.txt")
+#samples = np.vstack((samples, samples_new, samples_new2))
 samples = samples - lam_domain[:,0]
 samples = samples/(lam_domain[:,1]-lam_domain[:,0])
-lam_domain = np.array([[0.0,1.0], [0.0,1.0]])
-#data_true = np.loadtxt("results/data_fine.txt")[:,inds]
-#data = np.loadtxt("results/data.txt")[:,inds]
-data_true = np.loadtxt("results3/data_fine.txt")[:,inds]#[0:500,:]
-data_new = np.loadtxt("results3/data_new.txt")[:,inds]
-data_new2 = np.loadtxt("results3/data_new2.txt")[:,inds]
+data = np.loadtxt("results3/data_fine.txt")[:,inds]
 
-data_true = np.vstack((data_true,data_new, data_new2))
-data = data_true
+#lam_domain = np.array([[0.0,1.0], [0.0,1.0]])
+data_true = np.loadtxt("results3/data_true.txt") #[:,inds]
+samples_true = np.loadtxt("results3/samples_true.txt")
+samples_true = samples_true - lam_domain[:,0]
+samples_true = samples_true/(lam_domain[:,1]-lam_domain[:,0])
+marker_true = np.loadtxt("results3/marker_true.txt")
+#data = np.loadtxt("results/data.txt")[:,inds]
+#data_true = np.loadtxt("results3/data_fine.txt")[:,inds]#[0:500,:]
+#data_new = np.loadtxt("results3/data_new.txt")[:,inds]
+#data_new2 = np.loadtxt("results3/data_new2.txt")[:,inds]
+
+#data_true = np.vstack((data_true,data_new, data_new2))
+#data = data_true
 #data = np.loadtxt("results3/data_coarse.txt")[:,inds][0:10000,:]
 #ee = np.loadtxt("results3/ee.txt")[:,inds][0:10000,:]
 #ee = np.zeros(data.shape)
@@ -88,7 +94,7 @@ data = data_true
 
 # QoI map
 #Q_map = np.array([[0.503],[0.253]])
-
+lam_domain = np.array([[0.0,1.0], [0.0,1.0]])
 # reference QoI
 Q_ref =  np.array([0.007565667633600828,0.013768501998185518,0.016950964573704413]) #np.dot(np.array(ref_lam), Q_map)
 Q_ref = Q_ref[inds]
@@ -180,13 +186,13 @@ convergence rate of Monte Carlo (it converges like 1/sqrt(n_samples)).
 # as lower-dimensional marginal plots have limited value in understanding the
 # structure of a high dimensional non-parametric probability measure.
 # '''
-(bins, marginals2D) = plotP.calculate_2D_marginal_probs(P_samples = P, samples = samples, lam_domain = lam_domain, nbins = [20, 20])
+#(bins, marginals2D) = plotP.calculate_2D_marginal_probs(P_samples = P, samples = samples, lam_domain = lam_domain, nbins = [20, 20])
 # # smooth 2d marginals probs (optional)
 # marginals2D = plotP.smooth_marginals_2D(marginals2D,bins, sigma=0.1)
 
 # # plot 2d marginals probs
-plotP.plot_2D_marginal_probs(marginals2D, bins, lam_domain, filename = "conatmMap",
-                             plot_surface=False)
+#plotP.plot_2D_marginal_probs(marginals2D, bins, lam_domain, filename = "conatmMap",
+#                             plot_surface=False)
 
 # # calculate 1d marginal probs
 # (bins, marginals1D) = plotP.calculate_1D_marginal_probs(P_samples = P, samples = lambda_emulate, lam_domain = lam_domain, nbins = [10, 10, 10])
@@ -202,7 +208,9 @@ if comm.rank == 0:
   se = calculateError.sampling_error(samples, lam_vol, 
                                      rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data)
   #(h,l) = se.calculate_error_fraction(P, 1.0)
-  (h,l) = se.calculate_error_contour_events()
+  #(h,l) = se.calculate_error_contour_events()
+  #(h,l) = se.calculate_error_contour_events()
+  (h,l) = se.calculate_error_voronoi(lam_domain, samples_true, marker_true, int(1.0e5))
   #(h,l) = se.calculate_error_hyperbox(lam_domain, np.array([[0.2,0.5],[0.2,0.5]]), int(1.0E3))
   print h,l
 #samples_new = se.get_new_samples(lam_domain = lam_domain, num_l_emulate=10000, index =1)
@@ -266,6 +274,8 @@ for i,val in enumerate(vor.point_region):
 
 #plt.show()
 plt.savefig("coarse.eps")
+
+
 
 import pdb
 pdb.set_trace()
