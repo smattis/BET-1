@@ -429,10 +429,14 @@ class model_error(object):
                 in_Ai1 = indices1[ptr1]
                 indices2 = np.equal(self.io_ptr2,i)
                 in_Ai2 = indices2[ptr1]
-                JiA = float(np.sum(np.logical_and(in_A,in_Ai1)))
-                Ji = float(np.sum(in_Ai1))
-                JiAe = float(np.sum(np.logical_and(in_A,in_Ai2)))
-                Jie = float(np.sum(in_Ai2))
+                JiA_local = float(np.sum(np.logical_and(in_A,in_Ai1)))
+                JiA = comm.allreduce(JiA_local, op=MPI.SUM)
+                Ji_local = float(np.sum(in_Ai1))
+                Ji = comm.allreduce(Ji_local, op=MPI.SUM)
+                JiAe_local = float(np.sum(np.logical_and(in_A,in_Ai2)))
+                JiAe = comm.allreduce(JiAe_local, op=MPI.SUM)
+                Jie_local = float(np.sum(in_Ai2))
+                Jie = comm.allreduce(Jie_local, op=MPI.SUM)
                 er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
 
         return er_est
@@ -452,10 +456,15 @@ class model_error(object):
                 in_Ai1 = indices1[ptr1]
                 indices2 = np.equal(self.io_ptr2,i)
                 in_Ai2 = indices2[ptr1]
-                JiA = float(np.sum(np.logical_and(in_A,in_Ai1)))
-                Ji = float(np.sum(in_Ai1))
-                JiAe = float(np.sum(np.logical_and(in_A,in_Ai2)))
-                Jie = float(np.sum(in_Ai2))
+                JiA_local = float(np.sum(np.logical_and(in_A,in_Ai1)))
+                JiA = comm.allreduce(JiA_local, op=MPI.SUM)
+                Ji_local = float(np.sum(in_Ai1))
+                Ji = comm.allreduce(Ji_local, op=MPI.SUM)                
+                JiAe_local = float(np.sum(np.logical_and(in_A,in_Ai2)))
+                JiAe = comm.allreduce(JiAe_local, op=MPI.SUM)
+                Jie_local = float(np.sum(in_Ai2))
+                Jie = comm.allreduce(Jie_local, op=MPI.SUM)
+
                 er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
 
         return er_est
