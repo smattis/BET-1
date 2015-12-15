@@ -207,8 +207,13 @@ class sampling_error(object):
             if self.rho_D_M[i] > 0.0:
                 indices = np.equal(self.io_ptr,i)
                 in_Ai = indices[ptr1]
-                E = float(np.sum(np.logical_and(in_A, in_Ai)))/float(np.sum(in_Ai))
-               
+                sum1 = np.sum(np.logical_and(in_A, in_Ai))
+                sum2 = np.sum(in_Ai)
+                sum1 = comm.allreduce(sum1, op=MPI.SUM)
+                sum2 = comm.allreduce(sum2, op=MPI.SUM)
+                E = float(sum1)/float(sum2)
+                #E = float(np.sum(np.logical_and(in_A, in_Ai)))/(np.sum(in_Ai))
+                
                 #import pdb
                 # pdb.set_trace()
                 # should be faster way
@@ -220,8 +225,18 @@ class sampling_error(object):
                 for j in self.C_N[i]:
                     in_C_N =  np.logical_or(np.equal(ptr1,j), in_C_N)
                 #pdb.set_trace()
-                term1 = float(np.sum(np.logical_and(in_A,in_B_N)))/float(np.sum(in_C_N))- E
-                term2 = float(np.sum(np.logical_and(in_A,in_C_N)))/float(np.sum(in_B_N))- E
+                sum3 = np.sum(np.logical_and(in_A,in_B_N))
+                sum4 = np.sum(in_C_N)
+                sum3 = comm.allreduce(sum3, op=MPI.SUM)
+                sum4 = comm.allreduce(sum4, op=MPI.SUM)
+                term1 = float(sum3)/float(sum4) - E
+                #term1 = float(np.sum(np.logical_and(in_A,in_B_N)))/float(np.sum(in_C_N))- E
+                sum5 = np.sum(np.logical_and(in_A,in_C_N))
+                sum6 = np.sum(in_B_N)
+                sum5 = comm.allreduce(sum5, op=MPI.SUM)
+                sum6 = comm.allreduce(sum6, op=MPI.SUM)
+                #term2 = float(np.sum(np.logical_and(in_A,in_C_N)))/float(np.sum(in_B_N))- E
+                term2 = float(sum5)/float(sum6) - E
                 upper_bound += self.rho_D_M[i]*max(term1,term2)
                 lower_bound += self.rho_D_M[i]*min(term1,term2)  
         return (upper_bound, lower_bound)
@@ -243,7 +258,13 @@ class sampling_error(object):
             if self.rho_D_M[i] > 0.0:
                 indices = np.equal(self.io_ptr,i)
                 in_Ai = indices[ptr1]
-                E = float(np.sum(np.logical_and(in_A, in_Ai)))/float(np.sum(in_Ai))
+                #E = float(np.sum(np.logical_and(in_A, in_Ai)))/float(np.sum(in_Ai))
+                sum1 = np.sum(np.logical_and(in_A, in_Ai))
+                sum2 = np.sum(in_Ai)
+                sum1 = comm.allreduce(sum1, op=MPI.SUM)
+                sum2 = comm.allreduce(sum2, op=MPI.SUM)
+                E = float(sum1)/float(sum2)
+
                 in_B_N = np.zeros(in_A.shape, dtype=np.bool)
                 for j in self.B_N[i]:
                     in_B_N = np.logical_or(np.equal(ptr1,j),in_B_N)
@@ -252,8 +273,19 @@ class sampling_error(object):
                 for j in self.C_N[i]:
                     in_C_N =  np.logical_or(np.equal(ptr1,j), in_C_N)
                 #pdb.set_trace()
-                term1 = float(np.sum(np.logical_and(in_A,in_B_N)))/float(np.sum(in_C_N))- E
-                term2 = float(np.sum(np.logical_and(in_A,in_C_N)))/float(np.sum(in_B_N))- E
+                #term1 = float(np.sum(np.logical_and(in_A,in_B_N)))/float(np.sum(in_C_N))- E
+                #term2 = float(np.sum(np.logical_and(in_A,in_C_N)))/float(np.sum(in_B_N))- E
+                sum3 = np.sum(np.logical_and(in_A,in_B_N))
+                sum4 = np.sum(in_C_N)
+                sum3 = comm.allreduce(sum3, op=MPI.SUM)
+                sum4 = comm.allreduce(sum4, op=MPI.SUM)
+                term1 = float(sum3)/float(sum4) - E
+                sum5 = np.sum(np.logical_and(in_A,in_C_N))
+                sum6 = np.sum(in_B_N)
+                sum5 = comm.allreduce(sum5, op=MPI.SUM)
+                sum6 = comm.allreduce(sum6, op=MPI.SUM)
+                term2 = float(sum5)/float(sum6) - E
+
                 upper_bound += self.rho_D_M[i]*max(term1,term2)
                 lower_bound += self.rho_D_M[i]*min(term1,term2)  
         return (upper_bound, lower_bound)

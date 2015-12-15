@@ -67,7 +67,6 @@ Q_ref = Q_ref[inds]
 
 
 
-deterministic_discretize_D = True
 
 
 (d_distr_prob, d_distr_samples, d_Tree) = simpleFunP.uniform_hyperrectangle_binsize(data=data,
@@ -86,7 +85,8 @@ prob_box = calculateP.prob_hyperbox(box =  np.array([[0.2,0.5],[0.3,0.5]]),
                                     lam_vol = lam_vol, 
                                     lam_domain=lam_domain,
                                     num_l_emulate=int(1.0e4))
-print prob_box
+if comm.rank == 0:
+  print prob_box
 se = calculateError.sampling_error(samples, lam_vol, 
                                    rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data)
   #(h,l) = se.calculate_error_fraction(P, 1.0)
@@ -94,7 +94,8 @@ se = calculateError.sampling_error(samples, lam_vol,
   #(h,l) = se.calculate_error_contour_events()
   #(h,l) = se.calculate_error_voronoi(lam_domain, samples_true, marker_true, int(1.0e5))
 (h,l) = se.calculate_error_hyperbox(lam_domain, np.array([[0.2,0.5],[0.3,0.5]]), int(1.0E4))
-print h,l
+if comm.rank ==0:
+  print h,l
 #samples_new = se.get_new_samples(lam_domain = lam_domain, num_l_emulate=10000, index =1)
 #samples_new = (lam_domain_old[:,1] - lam_domain_old[:,0]) * samples_new + lam_domain_old[:,0]
 #np.savetxt("samples_new.txt", samples_new)
@@ -158,6 +159,3 @@ for i,val in enumerate(vor.point_region):
 plt.savefig("coarse.eps")
 
 
-
-import pdb
-pdb.set_trace()

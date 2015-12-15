@@ -271,7 +271,7 @@ def prob_exact(samples, data, rho_D_M, d_distr_samples,
     #l_Tree = spatial.KDTree(samples)
     #(_, emulate_ptr) = l_Tree.query(lambda_emulate)
 
-    lam_vol = exact_volume(samples, lam_domain, side_ratio)
+    (lam_vol, lam_vol_local, local_index) = exact_volume(samples, lam_domain, side_ratio)
 
     # local_array = np.array(local_index, dtype='int64')
     # data_local = data[local_index, :]
@@ -281,18 +281,40 @@ def prob_exact(samples, data, rho_D_M, d_distr_samples,
     # # Determine which inputs go to which M bins using the QoI
     # (_, io_ptr_local) = d_Tree.query(data_local)
 
+    # # Calculate Probabilities
+    # P = np.zeros((samples.shape[0],))
+    # for i in range(rho_D_M.shape[0]):
+    #     Itemp = np.equal(io_ptr, i)
+    #     Itemp_sum = np.sum(lam_vol[Itemp])
+    #     #Itemp_sum = comm.allreduce(Itemp_sum, op=MPI.SUM)
+    #     if Itemp_sum > 0:
+    #         P[Itemp] = rho_D_M[i]*lam_vol[Itemp]/Itemp_sum 
+    # #P_global = util.get_global_values(P_local)
+    # #global_index = util.get_global_values(local_array)
+    # #P = np.zeros(P_global.shape)
+    # #P[global_index] = P_global[:]
+
+    local_array = np.array(local_index, dtype='int64')
+    data_local = data[local_index, :]
+    samples_local = samples[local_index, :]
+    
+    
+    # Determine which inputs go to which M bins using the QoI
+    (_, io_ptr_local) = d_Tree.query(data_local)
+
     # Calculate Probabilities
-    P = np.zeros((samples.shape[0],))
+    P_local = np.zeros((samples_local.shape[0],))
     for i in range(rho_D_M.shape[0]):
-        Itemp = np.equal(io_ptr, i)
-        Itemp_sum = np.sum(lam_vol[Itemp])
-        #Itemp_sum = comm.allreduce(Itemp_sum, op=MPI.SUM)
+        Itemp = np.equal(io_ptr_local, i)
+        Itemp_sum = np.sum(lam_vol_local[Itemp])
+        Itemp_sum = comm.allreduce(Itemp_sum, op=MPI.SUM)
         if Itemp_sum > 0:
-            P[Itemp] = rho_D_M[i]*lam_vol[Itemp]/Itemp_sum 
-    #P_global = util.get_global_values(P_local)
-    #global_index = util.get_global_values(local_array)
-    #P = np.zeros(P_global.shape)
-    #P[global_index] = P_global[:]
+            P_local[Itemp] = rho_D_M[i]*lam_vol_local[Itemp]/Itemp_sum 
+    P_global = util.get_global_values(P_local)
+    global_index = util.get_global_values(local_array)
+    P = np.zeros(P_global.shape)
+    P[global_index] = P_global[:]
+    
     return (P, lam_vol, io_ptr)
 
 def estimate_volume(samples, lambda_emulate=None):
@@ -430,11 +452,14 @@ def exact_volume(samples, lam_domain, side_ratio = 0.1):
     #     new_samples = 
     vor = spatial.Voronoi(samples)
     # ndim = samples.shape[1]
-    lam_vol = np.zeros((n_samp,))
     #import pdb
     #pdb.set_trace()
+    local_index = range(0+comm.rank, n_samp, comm.size)
+    local_array = np.array(local_index, dtype='int64')
+    lam_vol_local = np.zeros(local_array.shape)
 
-    for i in range(n_samp):
+
+    for I,i in enumerate(local_index):
         val =vor.point_region[i]
         region = vor.regions[val]
         if not -1 in region:
@@ -453,14 +478,18 @@ def exact_volume(samples, lam_domain, side_ratio = 0.1):
             #if vol > 1.0:
                 #import pdb
                 #pdb.set_trace()
-            lam_vol[i] = vol
+            lam_vol_local[I] = vol
     #import pdb
     #pdb.set_trace()
     lam_size = np.prod(lam_domain[:,1] - lam_domain[:,0])
     #import pdb
     #pdb.set_trace()
-    lam_vol  = lam_vol/lam_size
-    return lam_vol
+    lam_vol_local  = lam_vol_local/lam_size
+    lam_vol_global = util.get_global_values(lam_vol_local)
+    global_index = util.get_global_values(local_array)
+    lam_vol = np.zeros(lam_vol_global.shape)
+    lam_vol[global_index] = lam_vol_global[:]
+    return (lam_vol, lam_vol_local, local_index)
 
 def prob_hyperbox(box, samples, P, lam_vol, lam_domain, num_l_emulate):
     
@@ -475,7 +504,11 @@ def prob_hyperbox(box, samples, P, lam_vol, lam_domain, num_l_emulate):
     
     in_A = np.logical_and(np.greater_equal(lambda_emulate,box[:,0]), np.less_equal(lambda_emulate,box[:,1]))
     in_A = np.all(in_A, axis=1)
-    prob = np.sum(rho[emulate_ptr[in_A]])/float(lambda_emulate.shape[0])
+    sum1 = np.sum(rho[emulate_ptr[in_A]])
+    print comm.rank, sum1
+    sum1_all = comm.allreduce(sum1, op=MPI.SUM)
+    print sum1_all
+    prob = float(sum1_all)/float(num_l_emulate)
     
     return prob
 
