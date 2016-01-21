@@ -491,24 +491,24 @@ def exact_volume(samples, lam_domain, side_ratio = 0.1):
     lam_vol[global_index] = lam_vol_global[:]
     return (lam_vol, lam_vol_local, local_index)
 
-def prob_hyperbox(box, samples, P, lam_vol, lam_domain, num_l_emulate):
+# def prob_hyperbox(box, samples, P, lam_vol, lam_domain, num_l_emulate):
     
-    lambda_emulate = emulate_iid_lebesgue(lam_domain, num_l_emulate)
-    if len(samples.shape) == 1:
-        samples = np.expand_dims(samples, axis=1) 
-    rho = P/lam_vol
+#     lambda_emulate = emulate_iid_lebesgue(lam_domain, num_l_emulate)
+#     if len(samples.shape) == 1:
+#         samples = np.expand_dims(samples, axis=1) 
+#     rho = P/lam_vol
  
-    # Determine which emulated samples match with which model run samples
-    l_Tree = spatial.KDTree(samples)
-    (_, emulate_ptr) = l_Tree.query(lambda_emulate)
+#     # Determine which emulated samples match with which model run samples
+#     l_Tree = spatial.KDTree(samples)
+#     (_, emulate_ptr) = l_Tree.query(lambda_emulate)
     
-    in_A = np.logical_and(np.greater_equal(lambda_emulate,box[:,0]), np.less_equal(lambda_emulate,box[:,1]))
-    in_A = np.all(in_A, axis=1)
-    sum1 = np.sum(rho[emulate_ptr[in_A]])
-    print comm.rank, sum1
-    sum1_all = comm.allreduce(sum1, op=MPI.SUM)
-    print sum1_all
-    prob = float(sum1_all)/float(num_l_emulate)
+#     in_A = np.logical_and(np.greater_equal(lambda_emulate,box[:,0]), np.less_equal(lambda_emulate,box[:,1]))
+#     in_A = np.all(in_A, axis=1)
+#     sum1 = np.sum(rho[emulate_ptr[in_A]])
+#     print comm.rank, sum1
+#     sum1_all = comm.allreduce(sum1, op=MPI.SUM)
+#     print sum1_all
+#     prob = float(sum1_all)/float(num_l_emulate)
     
-    return prob
+#     return prob
 

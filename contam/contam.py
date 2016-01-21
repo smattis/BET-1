@@ -63,14 +63,14 @@ Then also try n_samples = 1E4. What happens when n_samples = 1E2?
 # else:
 #   samples = calculateP.emulate_iid_lebesgue(lam_domain=lam_domain, 
 # 					    num_l_emulate = n_samples)
-inds = [0]
+inds = [2]
 samples = np.loadtxt("results/samples.txt")#[:,inds]
 data_true = np.loadtxt("results/data_fine.txt")[:,inds]
-#data = np.loadtxt("results/data_coarse.txt")[:,inds]
-data = np.loadtxt("results/data_fine.txt")[:,inds]
-#ee = np.loadtxt("results/ee.txt")[:,inds]
-ee = np.zeros(data.shape)
-
+data = np.loadtxt("results/data_coarse.txt")[:,inds]
+#data = np.loadtxt("results/data_fine.txt")[:,inds]
+ee = np.loadtxt("results/ee.txt")[:,inds]
+#ee = np.zeros(data.shape)
+#ee = data_true - data
 
 # QoI map
 #Q_map = np.array([[0.503],[0.253]])
@@ -183,8 +183,8 @@ plotP.plot_2D_marginal_probs(marginals2D, bins, lam_domain, filename = "conatmMa
 if comm.rank == 0:
   se = calculateError.sampling_error(samples, lam_vol, 
                                      rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data)
-  #(h,l) = se.calculate_error_fraction(P, 0.5)
-  (h,l) = se.calculate_error_all()
+  (h,l) = se.calculate_error_fraction(P, 1.0)
+  #(h,l) = se.calculate_error_all()
   print h,l
 
   #ee = 0.01*np.ones(data.shape)
@@ -195,8 +195,8 @@ if comm.rank == 0:
                                  rho_D_M = d_distr_prob,
                                  rho_D_M_samples = d_distr_samples)
 
-  #m = me. calculate_error_fraction(P, 0.5)
-  m = me. calculate_error_all()
+  m = me. calculate_error_fraction(P, 1.0)
+  #m = me. calculate_error_all()
 
   print m
 

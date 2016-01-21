@@ -16,6 +16,7 @@ import bet.postProcess as postProcess
 import bet.calculateP.simpleFunP as simpleFunP
 import bet.calculateP.calculateP as calculateP
 import bet.calculateP.calculateError as calculateError
+import bet.calculateP.calculateEventP as calculateEventP
 import bet.postProcess.plotP as plotP
 from bet.Comm import comm, MPI 
 from math import *
@@ -79,12 +80,19 @@ Q_ref = Q_ref[inds]
 
 #lambda_emulate = calculateP.emulate_iid_lebesgue(lam_domain, int(1.0e4))
 
-prob_box = calculateP.prob_hyperbox(box =  np.array([[0.2,0.5],[0.3,0.5]]), 
-                                    samples = samples, 
-                                    P = P, 
-                                    lam_vol = lam_vol, 
-                                    lam_domain=lam_domain,
-                                    num_l_emulate=int(1.0e4))
+#prob_box = calculateP.prob_hyperbox(box =  np.array([[0.2,0.5],[0.3,0.5]]), 
+#                                    samples = samples, 
+#                                    P = P, 
+#                                    lam_vol = lam_vol, 
+#                                    lam_domain=lam_domain,
+#                                    num_l_emulate=int(1.0e4))
+p_event = calculateEventP.prob_event(samples = samples,
+                                     lam_domain = lam_domain,
+                                     P = P,
+                                     lam_vol = lam_vol, rho_D_M=d_distr_prob, rho_D_M_samples = d_distr_samples, data=data)
+prob_box = p_event.calculate_prob_hyperbox(box=np.array([[0.2,0.5],[0.3,0.5]]), 
+                                           num_l_emulate=int(1.0e6))
+                                     
 if comm.rank == 0:
   print prob_box
 se = calculateError.sampling_error(samples, lam_vol, 

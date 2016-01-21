@@ -401,7 +401,8 @@ def uniform_hyperrectangle(data, Q_ref, bin_ratio, center_pts_per_edge=1):
     if not isinstance(bin_ratio, collections.Iterable):
         bin_ratio = bin_ratio*np.ones((data.shape[1], ))
 
-    bin_size = (np.max(data, 0) - np.min(data, 0))*bin_ratio 
+    bin_size = (np.max(data, 0) - np.min(data, 0))*bin_ratio
+    print bin_size
     return uniform_hyperrectangle_binsize(data, Q_ref, bin_size,
             center_pts_per_edge)
 

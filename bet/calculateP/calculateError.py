@@ -70,6 +70,21 @@ def boundary_sets(samples, nei_list, io_ptr):
     
     return (B_N, C_N)
 
+def surrogate_from_derivatives(samples, 
+                               samples_surrogate, 
+                               data,
+                               derivatives,
+                               error_estimate = None):
+    l_tree = spatial.KDTree(self.samples)
+    ptr = l_tree.query(samples_surrogate)[1]
+    data_surrogate = data[ptr] + np.dot(derivatives[ptr], samples_surrogate - samples[ptr])
+    if error_estimate != None:
+        error_estimate_surrogate = error_estimate[ptr]
+    else:
+        error_estimate_surrogate = None
+    return data_surrogate, error_estimate_surrogate, ptr
+    
+
 class sampling_error(object):
     def __init__(self,
                  samples,
@@ -182,7 +197,7 @@ class sampling_error(object):
                     return (float('nan'), float('nan'))
                 val3 = np.sum(lam_vol[self.C_N[i]])
                 val4 = np.sum(self.lam_vol[self.C_N[i]])
-                print val1/val4, val3/val2
+                #print val1/val4, val3/val2
                 term1 = val1/val4 - E
                 term2 = val3/val2 - E
                 upper_bound += self.rho_D_M[i]*max(term1,term2)
@@ -246,7 +261,7 @@ class sampling_error(object):
         l_tree1 = spatial.KDTree(self.samples)
         
         ptr1 = l_tree1.query(lambda_emulate)[1]
-        print 'here'
+        #print 'here'
         in_A = np.logical_and(np.greater_equal(lambda_emulate,box[:,0]), np.less_equal(lambda_emulate,box[:,1]))
         in_A = np.all(in_A, axis=1)
         #import pdb
