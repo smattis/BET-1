@@ -322,8 +322,13 @@ class sampling_error(object):
             in_refine = np.zeros((num_l_emulate,), dtype=np.bool)
             for j in refine_list:
                 in_refine = np.logical_or(in_refine, np.equal(ptr,j))
-            num_new = int(np.sum(in_refine))
-            samples_new[counter:counter+num_new ,:] = lambda_emulate[in_refine,:]
+            samples_new_local = lambda_emulate[in_refine,:]
+            samples_new_global = util.get_global_values(samples_new_local)
+            if samples_new_global != None:
+                num_new = samples_new_global.shape[0]
+            else:
+                num_new = 0
+            samples_new[counter:counter+num_new ,:] = samples_new_global 
             counter += num_new 
             if counter > num_l_emulate:
                 go = False

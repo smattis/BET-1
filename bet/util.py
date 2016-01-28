@@ -84,10 +84,16 @@ def get_global_values(array, shape=None):
             # do a lowercase allgather
             a_shape = len(array.shape)
             array = comm.allgather(array)
+            new_array = []
+            for entry in array:
+                if entry.shape[0] != 0:
+                    new_array.append(entry)
+            if new_array == []:
+                return None
             if a_shape == 1:
-                return np.hstack(array)
+                return np.hstack(new_array)
             else:
-                return np.vstack(array)
+                return np.vstack(new_array)
         else:
             # do an uppercase Allgather
             whole_a = np.empty(shape, dtype=dtype)
