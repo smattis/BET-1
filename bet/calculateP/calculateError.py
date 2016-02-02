@@ -82,7 +82,7 @@ def surrogate_from_derivatives(samples,
         error_estimate_surrogate = error_estimate[ptr]
     else:
         error_estimate_surrogate = None
-    return data_surrogate, error_estimate_surrogate, ptr
+    return (data_surrogate, error_estimate_surrogate, ptr)
     
 
 class sampling_error(object):
@@ -306,12 +306,21 @@ class sampling_error(object):
         return (upper_bound, lower_bound)
         
 
-    def get_new_samples(self, lam_domain, num_l_emulate=100, index = 0):
+    def get_new_samples(self, lam_domain, num_l_emulate=100, indices = None):
+        if indices == None:
+            indices = []
+            for i,val in enumerate(self.rho_D_M):
+                if val > 0.0:
+                    indices.append[i]
 
         l_tree = spatial.KDTree(self.samples)
         samples_new = np.zeros((2*num_l_emulate, self.samples.shape[1]))
 
-        refine_list = list(set(self.C_N[index]) - set(self.B_N[index]))
+        refine_list = set([])
+        for index in indices:
+            refine_list = refine_List + (set(self.C_N[index]) - set(self.B_N[index]))
+        refine_list = list(refine_list)
+            
 
         go = True
         counter = 0
@@ -488,3 +497,30 @@ class model_error(object):
                 er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
 
         return er_est
+
+def refine_with_derivatives(samples,
+                            data,
+                            rho_D_M,
+                            rho_D_M_samples,
+                            lam_domain,
+                            tol=1.0e-3,
+                            event_type,
+                            event_args,
+                            new_per_batch=1000):
+    error = 1.0
+    samples_all = samples
+    data_all = data
+    while error > tol:
+        (lam_vol,_,_) = calculate.exact_volume(samples=samples_all,
+                                               lam_domain=lam_domain)
+        se = sampling_error(samples_all, 
+                            lam_vol, 
+                            rho_D_M = rho_D_M, 
+                            rho_D_M_samples = rho_D_M_samples, 
+                            data=data_all)
+        (h,l) = getattr(se, event_type)(*event_args)
+        error = max(abs(h), abs(l))
+        if error > tol:
+            samples_new = se.get_new_samples(lam_domain, num_l_emulate=new_per_batch, index = 0)
+            
+        
