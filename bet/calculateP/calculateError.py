@@ -75,9 +75,11 @@ def surrogate_from_derivatives(samples,
                                data,
                                derivatives,
                                error_estimate = None):
-    l_tree = spatial.KDTree(self.samples)
+    l_tree = spatial.KDTree(samples)
     ptr = l_tree.query(samples_surrogate)[1]
-    data_surrogate = data[ptr] + np.dot(derivatives[ptr], samples_surrogate - samples[ptr])
+    import pdb
+    pdb.set_trace()
+    data_surrogate = data[ptr] + np.sum(derivatives[ptr]*(samples_surrogate - samples[ptr]),axis=1)
     if error_estimate != None:
         error_estimate_surrogate = error_estimate[ptr]
     else:
@@ -309,16 +311,16 @@ class sampling_error(object):
     def get_new_samples(self, lam_domain, num_l_emulate=100, indices = None):
         if indices == None:
             indices = []
-            for i,val in enumerate(self.rho_D_M):
-                if val > 0.0:
-                    indices.append[i]
+            for i in range(self.rho_D_M.shape[0]): # ,val in enumerate(self.rho_D_M):
+                if self.rho_D_M[i] > 0.0:
+                    indices.append(i)
 
         l_tree = spatial.KDTree(self.samples)
         samples_new = np.zeros((2*num_l_emulate, self.samples.shape[1]))
 
         refine_list = set([])
         for index in indices:
-            refine_list = refine_List + (set(self.C_N[index]) - set(self.B_N[index]))
+            refine_list = set(list(refine_list) + list(set(self.C_N[index]) - set(self.B_N[index])))
         refine_list = list(refine_list)
             
 
@@ -500,18 +502,28 @@ class model_error(object):
 
 def refine_with_derivatives(samples,
                             data,
+                            derivatives,
                             rho_D_M,
                             rho_D_M_samples,
                             lam_domain,
-                            tol=1.0e-3,
                             event_type,
                             event_args,
-                            new_per_batch=1000):
+                            tol=1.0e-3,
+                            error_estimate = None,
+                            new_per_batch=1000,
+                            max_batch_num = 100):
+    #import pdb
     error = 1.0
+    counter  = 0
     samples_all = samples
     data_all = data
-    while error > tol:
-        (lam_vol,_,_) = calculate.exact_volume(samples=samples_all,
+    if error_estimate != None:
+        error_estimate_all = error_estimate
+    else:
+        error_estimate_all = None
+        
+    while error > tol and counter <= max_batch_num:
+        (lam_vol,_,_) = calculateP.exact_volume(samples=samples_all,
                                                lam_domain=lam_domain)
         se = sampling_error(samples_all, 
                             lam_vol, 
@@ -519,8 +531,22 @@ def refine_with_derivatives(samples,
                             rho_D_M_samples = rho_D_M_samples, 
                             data=data_all)
         (h,l) = getattr(se, event_type)(*event_args)
+        #pdb.set_trace()
         error = max(abs(h), abs(l))
+        print "Level" + `counter` + "Sampling Error Estimate: " + `error`
         if error > tol:
-            samples_new = se.get_new_samples(lam_domain, num_l_emulate=new_per_batch, index = 0)
+            counter += 1
+            samples_new = se.get_new_samples(lam_domain, num_l_emulate=new_per_batch, indices = None)
             
+            (data_new, ee_new, _) = surrogate_from_derivatives(samples, 
+                                                               samples_new, 
+                                                               data,
+                                                               derivatives,
+                                                               error_estimate)
+            samples_all = np.vstack((samples_all, samples_new))
+            data_all = np.vstack((data_all, data_new))
+            if error_estimate_all != None:
+                error_estimate_all = np.vstack((error_estimate_all, ee_new))
+    
         
+    return (samples_all, data_all, error_estimate_all)
