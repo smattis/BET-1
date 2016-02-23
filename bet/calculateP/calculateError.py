@@ -77,13 +77,19 @@ def surrogate_from_derivatives(samples,
                                error_estimate = None):
     l_tree = spatial.KDTree(samples)
     ptr = l_tree.query(samples_surrogate)[1]
-    import pdb
-    pdb.set_trace()
-    data_surrogate = data[ptr] + np.sum(derivatives[ptr]*(samples_surrogate - samples[ptr]),axis=1)
+    #import pdb
+    #pdb.set_trace()
+    data_surrogate = np.sum(derivatives[ptr,:]*(samples_surrogate - samples[ptr]),axis=1)
+    if len(data_surrogate.shape) == 1:
+        data_surrogate = np.expand_dims(data_surrogate, axis=1)
+    #import pdb
+    #pdb.set_trace()
+    data_surrogate += data[ptr]
     if error_estimate != None:
         error_estimate_surrogate = error_estimate[ptr]
     else:
         error_estimate_surrogate = None
+    #pdb.set_trace()
     return (data_surrogate, error_estimate_surrogate, ptr)
     
 
@@ -327,7 +333,7 @@ class sampling_error(object):
         go = True
         counter = 0
         while go:
-            print counter 
+            #print counter 
             lambda_emulate = calculateP.emulate_iid_lebesgue(lam_domain, num_l_emulate)
             ptr = l_tree.query(lambda_emulate)[1]
             in_refine = np.zeros((num_l_emulate,), dtype=np.bool)
@@ -499,6 +505,33 @@ class model_error(object):
                 er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
 
         return er_est
+    def calculate_error_hyperbox_mc(self, box):
+
+        in_A = np.logical_and(np.greater_equal(self.samples,box[:,0]), np.less_equal(self.samples,box[:,1]))
+        in_A = np.all(in_A, axis=1)
+
+        er_est = 0.0
+        P = 0.0
+        for i in range(self.rho_D_M.shape[0]):
+            if self.rho_D_M[i] > 0.0:
+                indices1 = np.equal(self.io_ptr1,i)
+                in_Ai1 = indices1#[ptr1]
+                indices2 = np.equal(self.io_ptr2,i)
+                in_Ai2 = indices2#[ptr1]
+                JiA_local = float(np.sum(np.logical_and(in_A,in_Ai1)))
+                JiA = comm.allreduce(JiA_local, op=MPI.SUM)
+                Ji_local = float(np.sum(in_Ai1))
+                Ji = comm.allreduce(Ji_local, op=MPI.SUM)                
+                JiAe_local = float(np.sum(np.logical_and(in_A,in_Ai2)))
+                JiAe = comm.allreduce(JiAe_local, op=MPI.SUM)
+                Jie_local = float(np.sum(in_Ai2))
+                Jie = comm.allreduce(Jie_local, op=MPI.SUM)
+
+                er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
+                P += self.rho_D_M[i]*JiA/Ji
+
+        return (P, er_est)
+        
 
 def refine_with_derivatives(samples,
                             data,
@@ -512,6 +545,14 @@ def refine_with_derivatives(samples,
                             error_estimate = None,
                             new_per_batch=1000,
                             max_batch_num = 100):
+
+    if len(samples.shape) == 1:
+        samples = np.expand_dims(samples, axis=1) 
+    if len(data.shape) == 1:
+        data = np.expand_dims(data, axis=1)
+    if error_estimate !=None and len(error_estimate.shape) == 1:
+        error_estimate = np.expand_dims(error_estimate, axis=1)
+
     #import pdb
     error = 1.0
     counter  = 0
@@ -523,17 +564,17 @@ def refine_with_derivatives(samples,
         error_estimate_all = None
         
     while error > tol and counter <= max_batch_num:
-        (lam_vol,_,_) = calculateP.exact_volume(samples=samples_all,
+        (lam_vol_all,_,_) = calculateP.exact_volume(samples=samples_all,
                                                lam_domain=lam_domain)
         se = sampling_error(samples_all, 
-                            lam_vol, 
+                            lam_vol_all, 
                             rho_D_M = rho_D_M, 
                             rho_D_M_samples = rho_D_M_samples, 
                             data=data_all)
         (h,l) = getattr(se, event_type)(*event_args)
         #pdb.set_trace()
         error = max(abs(h), abs(l))
-        print "Level" + `counter` + "Sampling Error Estimate: " + `error`
+        print "Level " + `counter` + " Sampling Error Estimate: " + `error`
         if error > tol:
             counter += 1
             samples_new = se.get_new_samples(lam_domain, num_l_emulate=new_per_batch, indices = None)
@@ -549,4 +590,41 @@ def refine_with_derivatives(samples,
                 error_estimate_all = np.vstack((error_estimate_all, ee_new))
     
         
-    return (samples_all, data_all, error_estimate_all)
+    return (samples_all, data_all, lam_vol_all, error_estimate_all)
+
+def total_error_with_derivatives(samples,
+                                 data,
+                                 derivatives,
+                                 rho_D_M,
+                                 rho_D_M_samples,
+                                 lam_domain,
+                                 event_type,
+                                 event_args,
+                                 error_estimate,
+                                 num_emulate=int(1.0e5)):
+    if len(samples.shape) == 1:
+        samples = np.expand_dims(samples, axis=1) 
+    if len(data.shape) == 1:
+        data = np.expand_dims(data, axis=1)
+    if len(error_estimate.shape) == 1:
+        error_estimate = np.expand_dims(error_estimate, axis=1)
+
+    #import pdb
+    samples_emulate = calculateP.emulate_iid_lebesgue(lam_domain, num_emulate)
+    (data_emulate, ee_emulate, _) = surrogate_from_derivatives(samples, 
+                                                               samples_emulate, 
+                                                               data,
+                                                               derivatives,
+                                                               error_estimate)
+    lam_vol_emulate = 1.0/float(num_emulate)*np.ones((num_emulate,))
+    
+    me = model_error(samples_emulate,
+                     data_emulate,
+                     ee_emulate,
+                     lam_vol_emulate,
+                     rho_D_M,
+                     rho_D_M_samples)
+    error  = getattr(me, event_type)(*event_args)
+
+    return error
+
