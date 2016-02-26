@@ -512,6 +512,7 @@ class model_error(object):
 
         er_est = 0.0
         P = 0.0
+        P2 = 0.0
         for i in range(self.rho_D_M.shape[0]):
             if self.rho_D_M[i] > 0.0:
                 indices1 = np.equal(self.io_ptr1,i)
@@ -529,8 +530,9 @@ class model_error(object):
 
                 er_est += self.rho_D_M[i]*((JiA*Jie - JiAe*Ji)/(Ji*Jie))
                 P += self.rho_D_M[i]*JiA/Ji
+                P2 += self.rho_D_M[i]*JiAe/Jie
 
-        return (P, er_est)
+        return (P, er_est, P2)
         
 
 def refine_with_derivatives(samples,
