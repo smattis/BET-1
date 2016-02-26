@@ -35,7 +35,7 @@ ref_lam = [30.0*cos(pi/5.0), 30.0*sin(pi/5.0)] #, 0.5]
 box=np.array([[20.0,30.0],[10.0,20.0]])
 box = box - lam_domain[:,0]
 box = box/(lam_domain[:,1]-lam_domain[:,0])
-box = np.array([[.1, .3],[.1,.3]])
+box = np.array([[.05, .3],[.05,.3]])
 
 inds = [2]
 # s = 12000
