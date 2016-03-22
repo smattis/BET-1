@@ -6,56 +6,60 @@ class NoList(exception):
 class LengthNotMatching(exception):
 	pass
 
-class sample(object):
+class sample_set(object):
     def __init__(self, dim):
         self._dim = dim 
-        self._value = None
-        self._volume = None
-        self._probability = None
-        self._jacobian = None
-        self._error_estimate = None
+        self._values = None
+        self._volumes = None
+        self._probabilities = None
+        self._jacobians = None
+        self._error_estimates = None
         pass
+    
 
-    def set_value(self, input):
+    def get_dim(self):
+        return self._dim
+
+    def set_values(self, input):
         """
         Sets values. input is a list or 1D array
         """
-        self._value = value
+        self._values = values
         pass
 
-    def get_value(self):
+    def get_values(self):
         """
         Returns value
         """
-        return self._value
+        return self._values
 
-    def set_volume(self, volume):
-        self._volume = volume
+    def set_volumes(self, volumes):
+        self._volumes = volumes
         pass
 
-    def get_volume(self):
-        return self._volume
+    def get_volumes(self):
+        return self._volumes
 
-    def set_probability(self, probability):
-        self._probability = probability
+    def set_probabilities(self, probabilities):
+        self._probabilities = probabilities
         pass
 
-    def get_probability(self):
-        return self._probability
+    def get_probabilities(self):
+        return self._probabilities
 
-    def set_jacobian(self, jacobian):
-        self._jacobian = jacobian
+    def set_jacobians(self, jacobians):
+        self._jacobians = jacobians
         pass
 
-    def get_jacobian(self):
-        return self._jacobian = jacobian
+    def get_jacobians(self):
+        return self._jacobians = jacobians
     
-    def set_error_estimate(self, error_estimate):
-        self._error_estimate = error_estimate
+    def set_error_estimates(self, error_estimates):
+        self._error_estimates = error_estimates
         pass
 
-    def get_error_estimate(self):
-        return self._error_estimate
+    def get_error_estimates(self):
+        return self._error_estimates
 
 class sample_set(iterable):
     def __init__(self, input_list=None, output_list=None, input_domain=None, output_domain=None):
