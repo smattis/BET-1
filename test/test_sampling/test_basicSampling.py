@@ -194,11 +194,12 @@ def verify_create_random_discretization(model, sampler, sample_type, input_domai
     assert np.all(my_discretization._input_sample_set._values <= input_right)
     assert np.all(my_discretization._input_sample_set._values >= input_left)
 
-    # compare the samples
-    nptest.assert_array_equal(input_sample_set._values,
+    if comm.size == 1:
+        # compare the samples
+        nptest.assert_array_equal(input_sample_set._values,
                               my_discretization._input_sample_set._values)
-    # compare the data
-    nptest.assert_array_equal(output_sample_set._values,
+        # compare the data
+        nptest.assert_array_equal(output_sample_set._values,
                               my_discretization._output_sample_set._values)
 
     # reset the random seed
@@ -235,12 +236,13 @@ def verify_create_random_discretization(model, sampler, sample_type, input_domai
     assert np.all(my_discretization._input_sample_set._values <= input_right)
     assert np.all(my_discretization._input_sample_set._values >= input_left)
 
-    # compare the samples
-    nptest.assert_array_equal(input_sample_set._values,
-                              my_discretization._input_sample_set._values)
-    # compare the data
-    nptest.assert_array_equal(output_sample_set._values,
-                              my_discretization._output_sample_set._values)
+    if comm.size == 1:
+        # compare the samples
+        nptest.assert_array_equal(input_sample_set._values,
+                                  my_discretization._input_sample_set._values)
+        # compare the data
+        nptest.assert_array_equal(output_sample_set._values,
+                                  my_discretization._output_sample_set._values)
 
 def verify_random_sample_set_domain(sampler, sample_type, input_domain,
                                  num_samples):

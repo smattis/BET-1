@@ -379,7 +379,7 @@ class sampler(object):
 
         if comm.rank == 0 and savefile is not None:
             self.save(mdat, savefile, discretization)
-        comm.barrier()
+        #comm.barrier()
         return discretization
 
 
