@@ -11,10 +11,11 @@ assume the measure on both spaces in Lebesgue.
 """
 
 import collections
+import logging
 import numpy as np
 import scipy.io as sio
 from pyDOE import lhs
-from bet.Comm import comm
+from bet.Comm import comm, MPI
 import bet.sample as sample
 
 class bad_object(Exception):
@@ -82,7 +83,10 @@ def random_sample_set(sample_type, input_obj, num_samples,
 
     # check to see what the input object is
     if isinstance(input_obj, sample.sample_set):
-        input_sample_set = input_obj.copy()
+        #input_sample_set = input_obj.copy()
+        input_sample_set = sample.sample_set(input_obj._dim)
+        if input_obj._domain is not None:
+            input_sample_set.set_domain(input_obj._domain)
     elif isinstance(input_obj, int):
         input_sample_set = sample.sample_set(input_obj)
     elif isinstance(input_obj, np.ndarray):
@@ -98,24 +102,29 @@ def random_sample_set(sample_type, input_obj, num_samples,
         # create the domain
         input_domain = np.array([[0., 1.]]*dim)
         input_sample_set.set_domain(input_domain)
+        logging.warning("Using unit box domain since set domain is not defined")
     # update the bounds based on the number of samples
-    input_sample_set.update_bounds(num_samples)
-    input_values = np.copy(input_sample_set._width)
-     
+    input_sample_set.update_bounds(num_samples)   
+   
     if sample_type == "lhs":
-        input_values = input_values * lhs(dim,
-                num_samples, criterion)
-    elif sample_type == "random" or "r":
-        input_values = input_values * np.random.random(input_values.shape) 
-    input_values = input_values + input_sample_set._left
-    if globalize is True:
-        input_sample_set.set_values(input_values)
-    elif globalize is False and \
-            (sample_type == "random" or sample_type == 'r'):
-        input_sample_set.set_values_local(input_values)
-    else:
+        if comm.rank == 0:
+            input_values = np.copy(input_sample_set._width)
+            input_values = input_values * lhs(dim,
+                                              num_samples, criterion)
+            input_values = input_values + input_sample_set._left
+        else:
+            input_values = None
+        comm.Bcast([input_values, MPI.DOUBLE], root=0)
         input_sample_set.set_values(input_values)
         input_sample_set.global_to_local()
+    elif sample_type == "random" or "r":
+        input_sample_set.global_to_local()
+        input_values = np.copy(input_sample_set._width_local)
+        input_values = input_values * np.random.random(input_values.shape) 
+        input_values = input_values + input_sample_set._left_local
+        input_sample_set.set_values_local(input_values)
+        if globalize:
+            input_sample_set.local_to_global()
 
     return input_sample_set
 
