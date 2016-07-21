@@ -125,12 +125,12 @@ for I, s in enumerate(sn):
                                                                        event_type = "calculate_error_hyperbox_mc",
                                                                        event_args = [box],
                                                                        error_estimate = ee,
-                                                                       num_emulate = int(1.0e7))
+                                                                       num_emulate = int(5.0e7))
 
   if comm.rank == 0:
     #print "Box probability", prob_box, total_error
     if I > 0:
-      print s, prob_box, total_error, prob_box - total_error, total_error/(-prob_true + prob_box), P2
+      print comm.rank, s, prob_box, total_error, prob_box - total_error, total_error/(-prob_true + prob_box), P2
     else:
       prob_true = P2
       print prob_true
