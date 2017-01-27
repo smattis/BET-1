@@ -614,4 +614,6 @@ class model_error(object):
                 if error_cells_num != 0:
                     self.disc._input_sample_set._error_id_local[error_cells] \
                             += er_cont/error_cells_num
+        import pdb
+        pdb.set_trace()
         return er_est
