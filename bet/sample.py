@@ -263,14 +263,14 @@ class sample_set_base(object):
                     '_volumes_local', '_local_index', '_dim', '_p_norm',
                     '_radii', '_normalized_radii', '_region', '_region_local',
                     '_error_id', '_error_id_local', '_reference_value',
-                    '_domain_original']
+                    '_domain_original', '_levels', '_levels_local']
 
     #: List of global attribute names for attributes that are 
     #: :class:`numpy.ndarray`
     array_names = ['_values', '_volumes', '_probabilities', '_jacobians',
                    '_error_estimates', '_right', '_left', '_width',
                    '_kdtree_values', '_radii', '_normalized_radii',
-                   '_region', '_error_id'] 
+                   '_region', '_error_id', '_levels'] 
     #: List of attribute names for attributes that are
     #: :class:`numpy.ndarray` with dim > 1
     all_ndarray_names = ['_error_estimates', '_error_estimates_local',
@@ -367,6 +367,11 @@ class sample_set_base(object):
         self._error_id_local = None
         #: :class:`numpy.ndarray` of reference value of shape (dim,)
         self._reference_value = None
+        #: :class:`numpy.ndarray` of levels of shape (num,)
+        self._levels = None
+        #: :class:`numpy.ndarray` of levels of shape (local_num,)
+        self._levels_local = None
+     
 
     def normalize_domain(self):
         """
@@ -529,6 +534,64 @@ class sample_set_base(object):
         Returns local error identifier.
         """
         return self._error_id_local
+
+    def set_levels(self, levels):
+        """
+        Sets error_id for sample set.
+
+        :param error_id: array of levels
+        :type error_id: :class:`numpy.ndarray` of shape (some_num, dim)
+        """
+        self._levels = levels
+
+    def get_levels(self):
+        """
+        Returns error identifiers.
+        """
+        return self._levels
+
+    def set_levels_local(self, levels):
+        """
+        Sets local levels for sample set.
+
+        :param error_id: array of levels
+        :type error_id: :class:`numpy.ndarray` of shape (some_num, dim)
+        """
+        self._error_local = levels
+
+    def get_levels_local(self):
+        """
+        Returns local levels.
+        """
+        return self._levels_locals
+
+    def append_levels(self, levels):
+        """
+        Appends the levels in ``_levels`` to ``self._levels``.
+
+        .. seealso::
+
+            :meth:`numpy.concatenate`
+
+        :param levels: levels to append
+        :type levels: :class:`numpy.ndarray` of shape (some_num, dim)
+        """
+        self._levels = np.concatenate((self._levels,
+                util.fix_dimensions_data(levels, self._dim)), 0)
+
+    def append_levels_local(self, values_local):
+        """
+        Appends the values in ``_values_local`` to ``self._values``.
+
+        .. seealso::
+
+            :meth:`numpy.concatenate`
+
+        :param values_local: values to append
+        :type values_local: :class:`numpy.ndarray` of shape (some_num, dim)
+        """
+        self._values_local = np.concatenate((self._values_local,
+                util.fix_dimensions_data(values_local, self._dim)), 0)
         
     def update_bounds(self, num=None):
         """
