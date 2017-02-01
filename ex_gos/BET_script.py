@@ -20,11 +20,19 @@ import bet.calculateP.calculateP as calcP
 import bet.sample as samp
 import bet.sampling.basicSampling as bsam
 import bet.surrogates as surrogates
-from lbModel import lb_model, lb_model_exact
+from lbModel import lb_model, lb_model_exact, lb_model2, lb_model3
 import bet.sampling.goalOrientedSampling as gos
 
+
+
 # Interface BET to the model.
-sampler = gos.sampler(1000, 10, 1.0e-5, [lb_model], error_estimates=True, jacobians=True)
+
+# Define paramter set of interest A
+s_set = samp.rectangle_sample_set(1)
+s_set.setup(maxes=[[0.25]], mins=[[-0.25]])
+s_set.set_region(np.array([0,1]))
+
+sampler = gos.sampler(1000, 10, 1.0e-5, [lb_model, lb_model2, lb_model3], s_set, 0, error_estimates=True, jacobians=True)
 
 #sampler_ref = bsam.sampler(lb_model_exact, error_estimates=False, jacobians=False)
 
@@ -82,7 +90,47 @@ simpleFunP.regular_partition_uniform_distribution_rectangle_domain(my_discretiza
 
 inputs = np.arange(100)
 outputs = np.zeros((100,), dtype='int')
-new_vals = sampler.pseudoinverse_samples(inputs, outputs)
+(inputs, outputs) = sampler.pseudoinverse_samples(inputs, outputs)
+
+import matplotlib.pyplot as plt
+plt.figure(0)
+plt.scatter(my_discretization._input_sample_set._values[0:100,:],
+            my_discretization._output_sample_set._values[0:100,:])
+
+
+num_old = 100
+for i in range(5):
+    num = my_discretization.check_nums()
+    #inputs = np.arange(num_old, num)
+    #outputs = np.zeros((num-num_old,),dtype='int')
+    (inputs, outputs) = sampler.pseudoinverse_samples(inputs, outputs)
+    
+    plt.figure(i)
+    plt.scatter(my_discretization._input_sample_set._values[num_old:num,:],
+            my_discretization._output_sample_set._values[num_old:num,:])
+    num_old = num
+#plt.show()
+
+sampler.level_refinement_inds(np.array([5, 50]))
+# disc = my_discretization
+# emulated_inputs = bsam.random_sample_set('r',
+#                                          disc._input_sample_set._domain,
+#                                          num_samples = int(1E4),
+#                                          globalize=False)
+
+#(prob, ee) = sampler.evaluate_surrogate(emulated_inputs, order=1)
+for i in range(10):
+    disc = my_discretization
+    emulated_inputs = bsam.random_sample_set('r',
+                                         disc._input_sample_set._domain,
+                                         num_samples = int(1E4),
+                                         globalize=False)
+    (prob, ee) = sampler.h_refinement_random(emulated_inputs, 1,
+                                         10,0)
+    print (prob, ee)
+    (prob, ee) = sampler.level_refinement(emulated_inputs, 1,
+                                         10)
+    print (prob, ee)
 
 import pdb
 pdb.set_trace()

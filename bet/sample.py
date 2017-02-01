@@ -371,7 +371,66 @@ class sample_set_base(object):
         self._levels = None
         #: :class:`numpy.ndarray` of levels of shape (local_num,)
         self._levels_local = None
-     
+
+    def append_sample_set(self,
+                          new_s_set):
+        """
+
+        Append sample set to sample set.
+
+        """
+        for obj in self.array_names:
+            val = getattr(new_s_set, obj)
+            if val is not None:
+                fun = "append" + obj
+                getattr(self, fun)(val)
+            else:
+                setattr(self, obj, None)
+            setattr(self, obj + '_local', None)
+        self.check_num()
+                
+    def append_right(self, right):
+        """
+        Appends the values in ``right`` to ``self._right``.
+
+        .. seealso::
+
+            :meth:`numpy.concatenate`
+
+        :param values: values to append
+        :type values: :class:`numpy.ndarray` of shape (some_num, dim)
+        """
+        self._right = np.concatenate((self._right,
+                util.fix_dimensions_data(right, self._dim)), 0)
+
+    def append_left(self, left):
+        """
+        Appends the values in ``right`` to ``self._right``.
+
+        .. seealso::
+
+            :meth:`numpy.concatenate`
+
+        :param values: values to append
+        :type values: :class:`numpy.ndarray` of shape (some_num, dim)
+        """
+        self._left = np.concatenate((self._left,
+                util.fix_dimensions_data(left, self._dim)), 0)
+
+    def append_width(self, width):
+        """
+        Appends the values in ``right`` to ``self._right``.
+
+        .. seealso::
+
+            :meth:`numpy.concatenate`
+
+        :param values: values to append
+        :type values: :class:`numpy.ndarray` of shape (some_num, dim)
+        """
+        self._width = np.concatenate((self._width,
+                util.fix_dimensions_data(width, self._dim)), 0)
+            
 
     def normalize_domain(self):
         """
@@ -577,7 +636,7 @@ class sample_set_base(object):
         :type levels: :class:`numpy.ndarray` of shape (some_num, dim)
         """
         self._levels = np.concatenate((self._levels,
-                util.fix_dimensions_data(levels, self._dim)), 0)
+                                       levels))
 
     def append_levels_local(self, values_local):
         """
