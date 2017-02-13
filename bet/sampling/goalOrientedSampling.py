@@ -78,8 +78,8 @@ class sampler(bsam.sampler):
                                        jacobians = self.jacobians)
         input_obj = initial_sampler.regular_sample_set(input_obj,
                                            num_samples_per_dim)
-        import pdb
-        pdb.set_trace()
+        #import pdb
+        #pdb.set_trace()
         self.disc = initial_sampler.compute_QoI_and_create_discretization(
             input_obj, savefile=savefile)
         return self.disc
@@ -162,10 +162,12 @@ class sampler(bsam.sampler):
 
         """
         num_models = len(self.lb_model_list)
-        good = np.less(self.disc._input_sample_set._levels, num_models - 1)
+        #good = np.less(self.disc._input_sample_set._levels, num_models - 1)
 
-        indices = indices[good[indices]]
+        #indices = indices[good[indices]]
         current_levels = self.disc._input_sample_set._levels[indices]
+        #import pdb
+        #pdb.set_trace()
         for i in range(num_models-1, 0, -1):
             inds = indices[np.equal(current_levels, i - 1)]
             num_new = len(inds)
@@ -187,7 +189,10 @@ class sampler(bsam.sampler):
                 self.disc._output_sample_set._error_estimates[inds,:] = new_disc._output_sample_set._error_estimates[:]
             if self.jacobians:
                 self.disc._input_sample_set._jacobians[inds,:] = new_disc._input_sample_set._jacobians[:]
-
+        self.disc._io_ptr = None
+        self.disc._io_ptr_local = None
+        #pdb.set_trace()
+            
     def evaluate_surrogate(self, input_sample_set, order=0):
         self.sur = surrogates.piecewise_polynomial_surrogate(self.disc)
         self.sur.generate_for_input_set(input_sample_set=input_sample_set,
@@ -225,15 +230,115 @@ class sampler(bsam.sampler):
         self.disc._output_sample_set.append_sample_set(
             new_disc._output_sample_set)
         self.disc._input_sample_set.local_to_global()
+        self.disc._io_ptr = None
+        self.disc._io_ptr_local = None
         return (prob, ee)
+
+    def h_refinement_cluster(self, input_sample_set, order=0,
+                             num_new_samples=10, level=0, tol=0.01):
+        import scipy.cluster as clust
+        import matplotlib.pyplot as plt
+        #import pdb
+        
+        (prob, ee) = self.evaluate_surrogate(input_sample_set, order)
+        input_sample_set.local_to_global()
+        cluster_inds = np.not_equal(input_sample_set._error_id, 0.0)
+        cluster_vals = input_sample_set._values[cluster_inds, :]
+        print cluster_vals.shape
+        if np.any(cluster_inds):
+        #pdb.set_trace()
+            #import pdb
+
+            eList = []
+            centList = []
+            krange = min(cluster_vals.shape[0] + 1, num_new_samples + 1)
+            print krange
+            for i in range(1, krange):
+                try:
+                    (new_vals, L) = clust.vq.kmeans2(cluster_vals, i, thresh=1.0e-7)
+                except:
+                    #import pdb
+                    #pdb.set_trace()
+                    pass 
+                centList.append(new_vals)
+                error = 0.0
+                for k in range(i):
+                    inds = np.equal(L, k)
+                    error += np.sum((cluster_vals[inds,:] - new_vals[k,:])**2)
+                eList.append(error)
+            #plt.figure()
+            #plt.plot(range(1, num_new_samples + 1), eList)
+            #plt.show()
+            #pdb.set_trace()
+            eList = np.array(eList)
+            diffs = (eList[1::] - eList[0:-1])/np.max(eList)
+            go = True
+            count = 0
+            while go and count < (krange-2):
+                try:
+                    go2 =  (diffs[count] <= 0.0 and abs(diffs[count]) <= tol and eList[count+1]/np.min(eList) < 10.0) or (diffs[count] > 0.0 and eList[count+1]/np.min(eList) < 10.0)
+                except:
+                    import pdb
+                    pdb.set_trace()
+                if go2:
+                    knum = count + 1
+                    go = False
+                else:
+                    count += 1
+            if go:
+                knum = krange-1 #num_new_samples
+
+            # print knum
+            # plt.figure()
+            # plt.plot(range(1, num_new_samples + 1), eList)
+            # plt.show()
+
+            #import pdb
+            #pdb.set_trace()
+            new_vals = centList[knum-1]
+
+            new_sset = sample.sample_set(self.disc._input_sample_set._dim)
+            new_sset.set_domain(self.disc._input_sample_set._domain)
+
+
+            new_sset.set_values(new_vals)
+            #pdb.set_trace()
+            #import pdb
+            #pdb.set_trace()
+
+
+            num_new_samples = knum
+            new_sampler = bsam.sampler(self.lb_model_list[level],
+                                           error_estimates = self.error_estimates,
+                                           jacobians = self.jacobians)
+            new_disc = new_sampler.compute_QoI_and_create_discretization(
+                new_sset,
+                savefile=None,
+                globalize=True)
+            new_disc._input_sample_set.set_levels(level*np.ones((num_new_samples,), dtype=int))
+
+            self.disc._input_sample_set.append_sample_set(
+                new_disc._input_sample_set)
+            self.disc._output_sample_set.append_sample_set(
+                new_disc._output_sample_set)
+            self.disc._input_sample_set.local_to_global()
+            self.disc._io_ptr = None
+            self.disc._io_ptr_local = None
+        return (prob, ee)
+        
     
                                           
     def level_refinement(self, input_sample_set, order=0,
                             num_new_samples=10):
         (prob, ee) = self.evaluate_surrogate(input_sample_set, order)
         error_ids = np.abs(self.disc._input_sample_set._error_id[:])
-        inds = np.argsort(error_ids, axis=0)
+        inds = np.argsort(error_ids, axis=0)[::-1]
+        #import pdb
+        #pdb.set_trace()
         #new_vals = self.dicinput_sample_set._values[inds[0:num_new_samples],:]
+        num_mod = len(self.lb_model_list)
+        good = np.less(self.disc._input_sample_set._levels, num_mod - 1)
+        inds[good[inds]]
         inds = inds[0:num_new_samples]
         self.level_refinement_inds(inds)
 
