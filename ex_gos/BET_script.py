@@ -7,7 +7,7 @@ r"""
 This example generates samples for a 1-1 nonlinear map defined by
 solving a 2D linear system that depends nonlinearly on the input parameter
 and taking the average of the solution vector. The so-called exact
-solution is solved by directly numerically inverting the system at many
+solution is solved  directly numerically inverting the system at many
 samples. The so-called numerical solution is calculated by solving the 
 system with a small number of iterations of the Gauss-Seidel method.
 
@@ -52,7 +52,8 @@ input_samples.set_domain(domain)
 #my_discretization = sampler.initial_samples_regular(input_samples, num_samples_per_dim=[20])
 my_discretization = sampler.initial_samples_random('r',
                                                    input_samples,
-                                                   100)
+                                                   100,
+                                                   level=1)
 
 
 #MC_assumption = True
@@ -90,7 +91,7 @@ simpleFunP.regular_partition_uniform_distribution_rectangle_domain(my_discretiza
 
 inputs = np.arange(100)
 outputs = np.zeros((100,), dtype='int')
-(inputs, outputs) = sampler.pseudoinverse_samples(inputs, outputs)
+#(inputs, outputs) = sampler.pseudoinverse_samples(inputs, outputs, 1)
 
 import matplotlib.pyplot as plt
 plt.figure(0)
@@ -98,20 +99,20 @@ plt.scatter(my_discretization._input_sample_set._values[0:100,:],
             my_discretization._output_sample_set._values[0:100,:])
 
 
-num_old = 100
-for i in range(5):
-    num = my_discretization.check_nums()
-    #inputs = np.arange(num_old, num)
-    #outputs = np.zeros((num-num_old,),dtype='int')
-    (inputs, outputs) = sampler.pseudoinverse_samples(inputs, outputs)
+# num_old = 100
+# for i in range(0):
+#     num = my_discretization.check_nums()
+#     #inputs = np.arange(num_old, num)
+#     #outputs = np.zeros((num-num_old,),dtype='int')
+#     (inputs, outputs) = sampler.pseudoinverse_samples(inputs, outputs)
     
-    plt.figure(i)
-    plt.scatter(my_discretization._input_sample_set._values[num_old:num,:],
-            my_discretization._output_sample_set._values[num_old:num,:])
-    num_old = num
+#     plt.figure(i)
+#     plt.scatter(my_discretization._input_sample_set._values[num_old:num,:],
+#             my_discretization._output_sample_set._values[num_old:num,:])
+#     num_old = num
 #plt.show()
 
-sampler.level_refinement_inds(np.array([5, 50]))
+#sampler.level_refinement_inds(np.array([5, 50]))
 # disc = my_discretization
 # emulated_inputs = bsam.random_sample_set('r',
 #                                          disc._input_sample_set._domain,
@@ -119,18 +120,28 @@ sampler.level_refinement_inds(np.array([5, 50]))
 #                                          globalize=False)
 
 #(prob, ee) = sampler.evaluate_surrogate(emulated_inputs, order=1)
+
+# emulated_inputs = bsam.random_sample_set('r',
+#                                          sampler.disc._input_sample_set._domain,
+#                                          num_samples = int(1E5),
+#                                          globalize=False)
 for i in range(10):
-    disc = my_discretization
+    #disc = my_discretization
     emulated_inputs = bsam.random_sample_set('r',
-                                         disc._input_sample_set._domain,
-                                         num_samples = int(1E4),
+                                         sampler.disc._input_sample_set._domain,
+                                         num_samples = int(1E5),
                                          globalize=False)
-    (prob, ee) = sampler.h_refinement_random(emulated_inputs, 1,
-                                         10,0)
-    print (prob, ee)
+    (prob, ee) = sampler.h_refinement_cluster(emulated_inputs, 1,
+                                              15,1)
+    print (prob, ee ,prob[0]-ee[0])
+    plt.scatter(my_discretization._input_sample_set._values[-5::,:],
+                my_discretization._output_sample_set._values[-5::,:])
+    # import pdb
+    # pdb.set_trace()
+    # plt.show()
     (prob, ee) = sampler.level_refinement(emulated_inputs, 1,
-                                         10)
-    print (prob, ee)
+                                        10)
+    print (prob, ee, prob[0]-ee[0])
 
 import pdb
 pdb.set_trace()

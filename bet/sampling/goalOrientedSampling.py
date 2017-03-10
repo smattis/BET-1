@@ -259,7 +259,8 @@ class sampler(bsam.sampler):
                 except:
                     #import pdb
                     #pdb.set_trace()
-                    pass 
+                    #pass
+                    return (prob,ee)
                 centList.append(new_vals)
                 error = 0.0
                 for k in range(i):
@@ -338,8 +339,14 @@ class sampler(bsam.sampler):
         #new_vals = self.dicinput_sample_set._values[inds[0:num_new_samples],:]
         num_mod = len(self.lb_model_list)
         good = np.less(self.disc._input_sample_set._levels, num_mod - 1)
-        inds[good[inds]]
-        inds = inds[0:num_new_samples]
+        #inds[good[inds]]
+        #import pdb
+        #pdb.set_trace()
+        num_go = int(np.sum(np.not_equal(self.disc._input_sample_set._error_id[inds], 0.0)))
+        num_go = min(num_go, num_new_samples)
+        inds = inds[0:num_go]
+        #import pdb
+        #pdb.set_trace()
         self.level_refinement_inds(inds)
 
         return (prob, ee)

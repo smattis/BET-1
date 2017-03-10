@@ -59,7 +59,7 @@ def lb_model(input_data):
         A=np.array(A)
         x0 = np.array([10.0, 10.0])
         # Solve with Gauss-Seidel method
-        x = gauss(A, b, x0, 2)
+        x = gauss(A, b, x0, 26)
         psi = np.array([0.5, 0.5])
         values[i] = np.dot(x, psi)
         # Solve adjoint problem exactly
@@ -101,7 +101,7 @@ def lb_model2(input_data):
         A=np.array(A)
         x0 = np.array([10.0, 10.0])
         # Solve with Gauss-Seidel method
-        x = gauss(A, b, x0, 4)
+        x = gauss(A, b, x0, 8 )
         psi = np.array([0.5, 0.5])
         values[i] = np.dot(x, psi)
         # Solve adjoint problem exactly
