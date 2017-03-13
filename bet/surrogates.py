@@ -180,5 +180,74 @@ class piecewise_polynomial_surrogate(object):
             self.input_disc._input_sample_set.set_error_id(error_id)
                     
         return (probabilities, error_estimates)
+
+    def evaluate_at_values(self, x, order=0, error_estimates=False):
+        """
+        Evaluates the surrogate at values x. For order 0, both are piecewise
+        constant. For order 1, values are piecewise linear (assuming Jacobians
+        exist), and error estimates are piecewise constant. Error estimates 
+        can be added on as enhancement.
+
+        :x: values at which to evaluate surrogate
+        :type values: :class:`~numpy.ndarray` of size (num_values, input_dim)
+        :param order: Polynomial order
+        :type order: int
+        :param error_estimates: whether or not to add error estiamtes
+        :type error_estimates: bool
+
+        :rtype: :class:`~numpy.ndarray` of size (num_values, output_dim)
+        :returns: values of the evaluated surrogate
+
+        """
+        # Check inputs
+        if order not in [0, 1]:
+            msg = "Order must be 0 or 1."
+            raise calculateError.wrong_argument_type(msg)
+        if x.shape[1] != self.input_disc._input_sample_set._dim:
+            msg = "Dimensions of input sets are not equal."
+            raise sample.dim_not_matching(msg)
         
+        # Setup dummy discretizion to get pointers
+        # Assumes Voronoi sample set for now
+        #output_sample_set = sample.sample_set(self.input_disc.\
+        #        _output_sample_set._dim)
+        #self.dummy_disc = self.input_disc.copy()
+        #self.dummy_disc.set_emulated_input_sample_set(input_sample_set)
+        #self.dummy_disc.set_emulated_ii_ptr(globalize=False)
+        (_, ii_ptr) = self.input_disc._input_sample_set.query(x)
+        if order == 0:
+            # define new values based on piecewise constants
+            new_values_local = self.input_disc._output_sample_set.\
+                    _values[ii_ptr]
+            #output_sample_set.set_values_local(new_values_local)
+        elif order == 1:
+            # define new values based on piecewise linears using Jacobians
+            if self.input_disc._input_sample_set._jacobians is None:
+                if self.input_disc._input_sample_set._jacobians_local is None:
+                    msg = "The input discretization must" 
+                    msg += " have jacobians defined."
+                    raise calculateError.wrong_argument_type(msg)
+                else:
+                    self.input_disc._input_sample_set.local_to_global()
+                    
+            jac_local = self.input_disc._input_sample_set._jacobians[\
+                    ii_ptr]
+            diff_local = self.input_disc._input_sample_set._values[\
+                    ii_ptr] - x
+            new_values_local = self.input_disc._output_sample_set._values[\
+                    ii_ptr]
+            new_values_local += np.einsum('ijk,ik->ij', jac_local, diff_local)
+            #output_sample_set.set_values_local(new_values_local)
+        
+        # if they exist, define error estimates with piecewise constants
+        if self.input_disc._output_sample_set._error_estimates is not None and error_estimates:
+            new_ee = self.input_disc._output_sample_set._error_estimates[\
+                    ii_ptr]
+            #output_sample_set.set_error_estimates_local(new_ee)
+            new_values_local += new_ee
+        # create discretization object for the surrogate
+        #self.surrogate_discretization = sample.discretization(input_sample_set\
+        #        =input_sample_set, output_sample_set=output_sample_set,
+        #        output_probability_set=self.input_disc._output_probability_set)
+        return new_values_local #self.surrogate_discretization
         

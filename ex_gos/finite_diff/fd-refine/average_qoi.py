@@ -123,8 +123,9 @@ def model_approx(input_data, h):
         jacobians[i,0,1] = np.dot(dRes_dlam, phi)
         dRes_dlam = db_dlam2 - dA_dlam2.dot(u_sol)
         jacobians[i,0,0] = np.dot(dRes_dlam, phi)
+        
 
-        return (values, error_estimates, jacobians)
+    return (values, error_estimates, jacobians)
 
 
 def lb_model0(input_data):
