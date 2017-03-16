@@ -249,5 +249,9 @@ class piecewise_polynomial_surrogate(object):
         #self.surrogate_discretization = sample.discretization(input_sample_set\
         #        =input_sample_set, output_sample_set=output_sample_set,
         #        output_probability_set=self.input_disc._output_probability_set)
-        return new_values_local #self.surrogate_discretization
+        return (new_values_local, ii_ptr) #self.surrogate_discretization
+
+    #def estimate_error(self,
+    #                   chain):
+        
         

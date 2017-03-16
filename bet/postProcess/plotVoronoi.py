@@ -181,7 +181,7 @@ def plot_2D_voronoi(sample_set, density=True, colormap_type='BuGn',
         points = sample_obj._values
 
         # Make plot
-        fig = plt.figure(0)
+        fig = plt.figure()
         cmap = matplotlib.cm.get_cmap(colormap_type)
         if density:
             P = sample_obj._probabilities/sample_obj._volumes

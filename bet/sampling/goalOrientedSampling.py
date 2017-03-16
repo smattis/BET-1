@@ -239,9 +239,12 @@ class sampler(bsam.sampler):
         import scipy.cluster as clust
         import matplotlib.pyplot as plt
         #import pdb
-        
-        (prob, ee) = self.evaluate_surrogate(input_sample_set, order)
-        input_sample_set.local_to_global()
+
+        if input_sample_set._error_id_local is None:
+            (prob, ee) = self.evaluate_surrogate(input_sample_set, order)
+            input_sample_set.local_to_global()
+        else:
+            (prob, ee) = (np.nan, np.nan)
         cluster_inds = np.not_equal(input_sample_set._error_id, 0.0)
         cluster_vals = input_sample_set._values[cluster_inds, :]
         print cluster_vals.shape
