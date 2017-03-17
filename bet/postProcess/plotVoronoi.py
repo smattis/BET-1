@@ -8,6 +8,7 @@ import copy, math
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 #plt.rc('text', usetex=True)
 #plt.rc('font', family='serif')
 from bet.Comm import comm, MPI 
@@ -182,6 +183,7 @@ def plot_2D_voronoi(sample_set, density=True, colormap_type='BuGn',
 
         # Make plot
         fig = plt.figure()
+        ax1 = fig.add_subplot(111, aspect='equal')
         cmap = matplotlib.cm.get_cmap(colormap_type)
         if density:
             P = sample_obj._probabilities/sample_obj._volumes
@@ -192,7 +194,12 @@ def plot_2D_voronoi(sample_set, density=True, colormap_type='BuGn',
         # plot each cell
         for i,region in enumerate(regions):
             polygon = vertices[region]
-            plt.fill(*zip(*polygon),color=cmap(P[i]/P_max), edgecolor = 'k', linewidth = 0.005)
+            #import pdb
+            #pdb.set_trace()
+            #plt.fill(*zip(*polygon),color=cmap(P[i]/P_max), fc='black', ec='black', linewidth = 1.0)
+            ax1.add_patch(patches.Polygon(polygon,
+                                          color=cmap(P[i]/P_max), ec='black',
+                                          linewidth=0.5))
 
         plt.axis([sample_obj._domain[0][0], sample_obj._domain[0][1], sample_obj._domain[1][0], sample_obj._domain[1][1]])
         if lam_ref is not None:

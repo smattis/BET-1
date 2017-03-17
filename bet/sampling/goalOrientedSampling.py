@@ -235,7 +235,7 @@ class sampler(bsam.sampler):
         return (prob, ee)
 
     def h_refinement_cluster(self, input_sample_set, order=0,
-                             num_new_samples=10, level=0, tol=0.01):
+                             num_new_samples=10, level=0, tol=0.01, match_level=True):
         import scipy.cluster as clust
         import matplotlib.pyplot as plt
         #import pdb
@@ -247,6 +247,16 @@ class sampler(bsam.sampler):
             (prob, ee) = (np.nan, np.nan)
         cluster_inds = np.not_equal(input_sample_set._error_id, 0.0)
         cluster_vals = input_sample_set._values[cluster_inds, :]
+        eid_vals = input_sample_set._error_id[cluster_inds]
+        eid_vals = np.floor(eid_vals/np.min(eid_vals)).astype(int) - 1
+        for i in range(len(eid_vals)):
+            if eid_vals[i] > 0:
+                new_clut = np.repeat(np.reshape(cluster_vals[i,:], (1, input_sample_set._dim)), eid_vals[i], axis=0)
+                #if eid_vals[i] > 0:
+                #import pdb
+                #pdb.set_trace()
+                cluster_vals = np.vstack((cluster_vals, new_clut))
+            
         print cluster_vals.shape
         if np.any(cluster_inds):
         #pdb.set_trace()
@@ -301,40 +311,77 @@ class sampler(bsam.sampler):
             #pdb.set_trace()
             new_vals = centList[knum-1]
 
-            new_sset = sample.sample_set(self.disc._input_sample_set._dim)
-            new_sset.set_domain(self.disc._input_sample_set._domain)
+            if match_level:
+                (_, old_sets) = self.disc._input_sample_set.query(new_vals)
+                old_levels = self.disc._input_sample_set._levels[old_sets]
+                for Level in range(len(self.lb_model_list)):
+                    go = np.equal(old_levels, Level)
+                    if np.any(go):
+                        n_vals = new_vals[go]
+                        new_sset = sample.sample_set(self.disc._input_sample_set._dim)
+                        new_sset.set_domain(self.disc._input_sample_set._domain)
 
 
-            new_sset.set_values(new_vals)
-            #pdb.set_trace()
-            #import pdb
-            #pdb.set_trace()
+                        new_sset.set_values(n_vals)        
 
 
-            num_new_samples = knum
-            new_sampler = bsam.sampler(self.lb_model_list[level],
-                                           error_estimates = self.error_estimates,
-                                           jacobians = self.jacobians)
-            new_disc = new_sampler.compute_QoI_and_create_discretization(
-                new_sset,
-                savefile=None,
-                globalize=True)
-            new_disc._input_sample_set.set_levels(level*np.ones((num_new_samples,), dtype=int))
+                        num_new_samples = len(n_vals)
+                        new_sampler = bsam.sampler(self.lb_model_list[Level],
+                                                       error_estimates = self.error_estimates,
+                                                       jacobians = self.jacobians)
+                        new_disc = new_sampler.compute_QoI_and_create_discretization(
+                            new_sset,
+                            savefile=None,
+                            globalize=True)
+                        new_disc._input_sample_set.set_levels(Level*np.ones((num_new_samples,), dtype=int))
 
-            self.disc._input_sample_set.append_sample_set(
-                new_disc._input_sample_set)
-            self.disc._output_sample_set.append_sample_set(
-                new_disc._output_sample_set)
-            self.disc._input_sample_set.local_to_global()
-            self.disc._io_ptr = None
-            self.disc._io_ptr_local = None
+                        self.disc._input_sample_set.append_sample_set(
+                            new_disc._input_sample_set)
+                        self.disc._output_sample_set.append_sample_set(
+                            new_disc._output_sample_set)
+                        self.disc._input_sample_set.local_to_global()
+                self.disc._io_ptr = None
+                self.disc._io_ptr_local = None
+                self.disc._input_sample_set.kdtree = None
+                
+                        
+            else:
+
+                new_sset = sample.sample_set(self.disc._input_sample_set._dim)
+                new_sset.set_domain(self.disc._input_sample_set._domain)
+
+
+                new_sset.set_values(new_vals)        
+
+
+                num_new_samples = knum
+                new_sampler = bsam.sampler(self.lb_model_list[level],
+                                               error_estimates = self.error_estimates,
+                                               jacobians = self.jacobians)
+                new_disc = new_sampler.compute_QoI_and_create_discretization(
+                    new_sset,
+                    savefile=None,
+                    globalize=True)
+                new_disc._input_sample_set.set_levels(level*np.ones((num_new_samples,), dtype=int))
+
+                self.disc._input_sample_set.append_sample_set(
+                    new_disc._input_sample_set)
+                self.disc._output_sample_set.append_sample_set(
+                    new_disc._output_sample_set)
+                self.disc._input_sample_set.local_to_global()
+                self.disc._io_ptr = None
+                self.disc._io_ptr_local = None
+            
         return (prob, ee)
         
     
                                           
-    def level_refinement(self, input_sample_set, order=0,
+    def level_refinement(self, input_sample_set=None, order=0,
                             num_new_samples=10):
-        (prob, ee) = self.evaluate_surrogate(input_sample_set, order)
+        if input_sample_set is not None:
+            (prob, ee) = self.evaluate_surrogate(input_sample_set, order)
+        else:
+            (prob, ee) = (np.nan, np.nan)
         error_ids = np.abs(self.disc._input_sample_set._error_id[:])
         inds = np.argsort(error_ids, axis=0)[::-1]
         #import pdb
