@@ -247,15 +247,15 @@ class sampler(bsam.sampler):
             (prob, ee) = (np.nan, np.nan)
         cluster_inds = np.not_equal(input_sample_set._error_id, 0.0)
         cluster_vals = input_sample_set._values[cluster_inds, :]
-        eid_vals = input_sample_set._error_id[cluster_inds]
-        eid_vals = np.floor(eid_vals/np.min(eid_vals)).astype(int) - 1
-        for i in range(len(eid_vals)):
-            if eid_vals[i] > 0:
-                new_clut = np.repeat(np.reshape(cluster_vals[i,:], (1, input_sample_set._dim)), eid_vals[i], axis=0)
-                #if eid_vals[i] > 0:
-                #import pdb
-                #pdb.set_trace()
-                cluster_vals = np.vstack((cluster_vals, new_clut))
+        # eid_vals = input_sample_set._error_id[cluster_inds]
+        # eid_vals = np.floor(eid_vals/np.min(eid_vals)).astype(int) - 1
+        # for i in range(len(eid_vals)):
+        #     if eid_vals[i] > 0:
+        #         new_clut = np.repeat(np.reshape(cluster_vals[i,:], (1, input_sample_set._dim)), eid_vals[i], axis=0)
+        #         #if eid_vals[i] > 0:
+        #         #import pdb
+        #         #pdb.set_trace()
+        #         cluster_vals = np.vstack((cluster_vals, new_clut))
             
         print cluster_vals.shape
         if np.any(cluster_inds):
