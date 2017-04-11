@@ -6,7 +6,7 @@ import bet.sampling.basicSampling as bsam
 import matplotlib.pyplot as plt
 import matplotlib
 
-def plot_hist(disc, x, show=True):
+def plot_hist(disc, x, show=True, save=False, savename = 'hist'):
     N = len(x)
     H, xedges, yedges = np.histogram2d(x[:,0], x[:,1], bins=40, range=[[0.0, 3.0], [-1.0, 3.0]])
     H=H.T
@@ -26,22 +26,35 @@ def plot_hist(disc, x, show=True):
     text.set_font_properties(font)
     if show:
         plt.show()
+    if save:
+        plt.savefig(savename + '.png')
+    plt.close()
 
-def plot_error_id_voronoi(disc, show=True):
+def plot_error_id_voronoi(disc, show=True, save=False, savename = 'error_id', label="error identifier"):
     disc._input_sample_set._probabilities_local = disc._input_sample_set._error_id
     disc._input_sample_set._probabilities = disc._input_sample_set._error_id
     disc._input_sample_set.exact_volume_2D()
-    pv.plot_2D_voronoi(disc, density=True, interactive=show)
+    pv.plot_2D_voronoi(disc, density=True, interactive=show, label=label)
+    if save:
+        plt.savefig(savename + '.png')
+    plt.close()
 
-def plot_levels_voronoi(disc, show=True):
+def plot_levels_voronoi(disc, show=True, save=False, savename = 'levels', data_range=None, label='level'):
     disc._input_sample_set._probabilities_local = disc._input_sample_set._levels
     disc._input_sample_set._probabilities = disc._input_sample_set._levels
     #disc._input_sample_set.exact_volume_2D()
-    pv.plot_2D_voronoi(disc, density=True, interactive=show)
+    pv.plot_2D_voronoi(disc, density=False, interactive=show, data_range=data_range, label=label)
+    if save:
+        plt.savefig(savename + '.png')
+    plt.close()
   
     
-def plot_prob_voronoi(disc, pmeas, show=True):
+def plot_prob_voronoi(disc, pmeas, show=True, save=False, savename = 'prob'):
     disc._input_sample_set._probabilities_local = pmeas
     disc._input_sample_set._probabilities = pmeas
     disc._input_sample_set.exact_volume_2D()
     pv.plot_2D_voronoi(disc, density=True, interactive=show)
+    if save:
+        plt.savefig(savename + '.png')
+    plt.close()
+        

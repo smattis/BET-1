@@ -400,3 +400,79 @@ class sampler(bsam.sampler):
         self.level_refinement_inds(inds)
 
         return (prob, ee)
+
+    def h_refinement_opt(self, input_sample_set=None, order=0,
+                         num_new_samples=10,
+                         estimate_error=None,
+                         x1=None, x2=None, max_props=3):
+        #if input_sample_set is not None:
+        #    (prob, ee) = self.evaluate_surrogate(input_sample_set, order)
+        #else:
+        (prob, ee) = (np.nan, np.nan)
+        inds = np.argsort(self.disc._input_sample_set._error_id, axis=0)[::-1][:num_new_samples]
+        # make more general
+        (_, ptr) = self.disc._input_sample_set.query(input_sample_set._values)
+        values = np.copy(self.disc._input_sample_set._values)
+        best_vals = []
+        best_levels = []
+        for ind in inds:
+            in_i = np.equal(ptr, ind)
+            props = input_sample_set._values[in_i][0:max_props]
+            eed = []
+            #import pdb
+            #pdb.set_trace()
+            for j in range(props.shape[0]):
+                new_values = np.concatenate((np.copy(values), np.array([props[j,:]]),), axis=0)
+                disc_dummy = self.disc.copy()
+                disc_dummy._kdtree = None
+                disc_dummy._kdtree_values = None
+                #kdtree = spatial.KDTree(new_values)
+                error_id = estimate_error(disc_dummy, x1, x2)
+                eed.append(np.sum(error_id))
+            eed = np.array(eed)
+            if len(eed) > 0:
+                best_arg = np.argmin(eed, axis=0)
+                best_vals.append(props[best_arg,:])
+                best_levels.append(self.disc._input_sample_set._levels[ind])
+        #import pdb
+        #pdb.set_trace()
+
+            
+        #(_, old_sets) = self.disc._input_sample_set.query(new_vals)
+        #old_levels = self.disc._input_sample_set._levels[old_sets]
+        old_levels = np.array(best_levels)
+        new_vals = np.array(best_vals)
+        for Level in range(len(self.lb_model_list)):
+            go = np.equal(old_levels, Level)
+            if np.any(go):
+                n_vals = new_vals[go]
+                new_sset = sample.sample_set(self.disc._input_sample_set._dim)
+                new_sset.set_domain(self.disc._input_sample_set._domain)
+
+
+                new_sset.set_values(n_vals)        
+
+
+                num_new_samples = len(n_vals)
+                new_sampler = bsam.sampler(self.lb_model_list[Level],
+                                               error_estimates = self.error_estimates,
+                                               jacobians = self.jacobians)
+                new_disc = new_sampler.compute_QoI_and_create_discretization(
+                    new_sset,
+                    savefile=None,
+                    globalize=True)
+                new_disc._input_sample_set.set_levels(Level*np.ones((num_new_samples,), dtype=int))
+
+                self.disc._input_sample_set.append_sample_set(
+                    new_disc._input_sample_set)
+                self.disc._output_sample_set.append_sample_set(
+                    new_disc._output_sample_set)
+                self.disc._input_sample_set.local_to_global()
+        self.disc._io_ptr = None
+        self.disc._io_ptr_local = None
+        self.disc._input_sample_set.kdtree = None
+        
+        return (prob, ee)
+                                    
+                
+            

@@ -117,7 +117,8 @@ def plot_1D_voronoi(sample_set, density=True, filename="file",
 def plot_2D_voronoi(sample_set, density=True, colormap_type='BuGn', 
                     filename="file", 
                     lam_ref=None, interactive=False,
-                    lambda_label=None, file_extension=".png"):
+                    lambda_label=None, file_extension=".png", data_range=None,
+                    label=None):
 
     """
     This makes a 2D Voronoi plot of the input probability measure for a 
@@ -197,8 +198,13 @@ def plot_2D_voronoi(sample_set, density=True, colormap_type='BuGn',
             #import pdb
             #pdb.set_trace()
             #plt.fill(*zip(*polygon),color=cmap(P[i]/P_max), fc='black', ec='black', linewidth = 1.0)
-            ax1.add_patch(patches.Polygon(polygon,
+            if data_range is None:
+                ax1.add_patch(patches.Polygon(polygon,
                                           color=cmap(P[i]/P_max), ec='black',
+                                          linewidth=0.5))
+            else:
+                ax1.add_patch(patches.Polygon(polygon,
+                                          color=cmap((float(P[i]))/(data_range[1]-1.0)), ec='black',
                                           linewidth=0.5))
 
         plt.axis([sample_obj._domain[0][0], sample_obj._domain[0][1], sample_obj._domain[1][0], sample_obj._domain[1][1]])
@@ -217,11 +223,21 @@ def plot_2D_voronoi(sample_set, density=True, colormap_type='BuGn',
         # plot colorbar
         ax, _ = matplotlib.colorbar.make_axes(plt.gca(), shrink=0.9)
         if density:
+            if label is None:
+                label=r'$\rho_{\Lambda}$'
             cbar = matplotlib.colorbar.ColorbarBase(ax, cmap=cmap,
-                                                    norm=matplotlib.colors.Normalize(vmin=0.0, vmax=P_max), label=r'$\rho_{\Lambda}$')
+                                                    norm=matplotlib.colors.Normalize(vmin=0.0, vmax=P_max), label=label)
         else:
-            cbar = matplotlib.colorbar.ColorbarBase(ax, cmap=cmap,
-                                                    norm=matplotlib.colors.Normalize(vmin=0.0, vmax=P_max), label=r'$P_{\Lambda}(\mathcal{V}_i)$')
+            if data_range is None:
+                if label is None:
+                    label = r'$P_{\Lambda}(\mathcal{V}_i)$'
+                cbar = matplotlib.colorbar.ColorbarBase(ax, cmap=cmap,
+                                                        norm=matplotlib.colors.Normalize(vmin=0.0, vmax=P_max), label=label) 
+            else:
+                if label is None:
+                    label = r'$P_{\Lambda}(\mathcal{V}_i)$'
+                cbar = matplotlib.colorbar.ColorbarBase(ax, cmap=cmap,
+                                                        norm=matplotlib.colors.Normalize(vmin=data_range[0], vmax=data_range[1]), label=label)
         text = cbar.ax.yaxis.label
         font = matplotlib.font_manager.FontProperties(size=20)
         text.set_font_properties(font)
@@ -229,6 +245,7 @@ def plot_2D_voronoi(sample_set, density=True, colormap_type='BuGn',
             plt.show()
 
         fig.savefig(filename + file_extension)
+        #plt.close()
     
 def voronoi_finite_polygons_2d(vor, radius=None):
     """

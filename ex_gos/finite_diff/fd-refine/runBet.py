@@ -26,7 +26,7 @@ def estimate_error(F1, p_meas1, p_meas2):
     e_id[zero] = zero_sum * np.fabs(p_meas1[zero] - p_meas2[zero])
     return e_id
 
-def estimate_error2(disc, x1, x2):
+def estimate_error2(disc, x1, x2, sset_fine=None):
     F11 = F(x1)
     F12 = F(x2)
     #zero = np.logical_and(np.equal(F11, 0.0), np.equal(F12, 0.0))
@@ -43,22 +43,56 @@ def estimate_error2(disc, x1, x2):
     F2 = np.zeros((num,))
     z1 = np.zeros((num,))
     z2 = np.zeros((num,))
+
+    if sset_fine is not None:
+        num_fine = sset_fine.check_num()
+        F1_fine = np.zeros((num_fine,))
+        F2_fine = np.zeros((num_fine,))
+        z1_fine = np.zeros((num_fine,))
+        z2_fine = np.zeros((num_fine,))
+        (_, id1_fine) = sset_fine.query(x1)
+        (_, id2_fine) = sset_fine.query(x2)
+                        
     #num_F1 = np.zeros((num,))
     #num_F2 = np.zeros((num,))
     for i in range(num):
         ids1 = np.equal(id1,i)
         if len(ids1) > 0:
-            #import pdb
-            #pdb.set_trace()
             F1[i] = np.sum(F11[ids1])/float(len(x1))
             z1[i]= float(np.sum(zero1[ids1]))/float(len(x1))
-            #num_F1[i] = len(ids1)
         ids2 = np.equal(id2,i)
         if len(ids2) > 0:
             F2[i] = np.sum(F12[ids2])/float(len(x2))
             z2[i]= float(np.sum(zero2[ids2]))/float(len(x2))
-            #num_F2[i] = len(ids2)
-    e_id = alpha_1 * np.fabs(F2-F1) + alpha_2 * (abs(np.sum(z2) - np.sum(z1))* np.fabs(z2-z1))**0.5
+    # if sset_fine is not None:
+    #     for i in range(num_fine):
+    #         ids1_fine = np.equal(id1_fine,i)
+    #         if len(ids1_fine) > 0:
+    #             F1_fine[i] = np.sum(F11_fine[ids1])/float(len(x1))
+    #             z1[i]= float(np.sum(zero1[ids1]))/float(len(x1))
+    #         ids2 = np.equal(id2,i)
+    #         if len(ids2) > 0:
+    #             F2[i] = np.sum(F12[ids2])/float(len(x2))
+    #             z2[i]= float(np.sum(zero2[ids2]))/float(len(x2))
+        
+
+    e_id = alpha_1 * np.fabs(F2-F1) + alpha_2 * (abs(np.average(z2) - np.average(z1))* np.fabs(z2-z1))**0.5
+    # count1 = np.ones((len(x1),))
+    # count2 = np.ones((len(x2),))
+    # F1[id1] += F11
+    # F2[id2] += F12
+    # count_id1 = np.zeros((num,))
+    # count_id2 = np.zeros((num,))
+    # count_id1[id1] += count1
+    # count_id2[id2] += count2
+    # F1 = F1/count_id1
+    # F2 = F2/count_id2
+    # z1[id1[zero1]] += 1.0
+    # z2[id2[zero2]] += 1.0
+    # z1 = z1/count_id1
+    # z2 = z2/count_id2
+    # e_id = alpha_1 * np.fabs(F2-F1) + alpha_2 * (abs(np.average(z2) - np.average(z1))* np.fabs(z2-z1))**0.5
+  
     return e_id
         
 def mark(vals):
@@ -114,12 +148,13 @@ for i in range(30):
     my_discretization._input_sample_set._error_id_local = e_id
     my_discretization._input_sample_set._error_id = e_id
     #pv.plot_2D_voronoi(my_discretization, density=False, interactive=False)
-    plotting.plot_hist(sampler.disc, x2, False)
-    plotting.plot_error_id_voronoi(sampler.disc, True)
+    plotting.plot_hist(sampler.disc, x2, False, save=True, savename='hist_'+`i`)
+    plotting.plot_error_id_voronoi(sampler.disc, False, save=True, savename='errorid_'+`i`)
+    plotting.plot_levels_voronoi(sampler.disc, False, save=True, savename='levels_'+`i`, data_range=[1.0, 5.0])
 
     if i%2 == 0:
         # proposals
-        proposals = bsam.random_sample_set('random', input_obj=domain, num_samples=10000)
+        proposals = bsam.random_sample_set('random', input_obj=domain, num_samples=1000)
         (_, cellList1) = proposals.query(x1)
         (_, cellList2) = proposals.query(x2)
         prop_meas1 = calc_measures(cellList1, proposals.check_num())
@@ -134,8 +169,9 @@ for i in range(30):
         proposals._error_id = e_id_p
         proposals._error_id_local = e_id_p
 
-        sampler.h_refinement_cluster(proposals, order=0, num_new_samples=50, level=0, tol=0.005, match_level=True)
-        print 'Total Samples after cluster ref. : ', sampler.disc.check_nums()
+        #sampler.h_refinement_cluster(proposals, order=0, num_new_samples=50, level=0, tol=0.005, match_level=True)
+        #print 'Total Samples after cluster ref. : ', sampler.disc.check_nums()
+        sampler.h_refinement_opt(proposals, order=0, num_new_samples=20, estimate_error=estimate_error2, x1=x2, x2=x2)
 
     else:
         sampler.level_refinement(None, 0, 20)
@@ -150,7 +186,7 @@ for i in range(30):
 N_fin = 1000000
 my_discretization._input_sample_set.set_kdtree()
 (x2, y2, p_meas2) = run_mcmc(sur, N_fin, order=1, ee=True)
-(x1, y1, p_meas1) = run_mcmc(sur, N_fib, order=1, ee=False)
+(x1, y1, p_meas1) = run_mcmc(sur, N_fin, order=1, ee=False)
 F1 = F(my_discretization._input_sample_set._values)
 
 #print 'P1 =  ', np.dot(F1, p_meas1)
