@@ -473,6 +473,31 @@ class sampler(bsam.sampler):
         self.disc._input_sample_set.kdtree = None
         
         return (prob, ee)
-                                    
+
+    def calculate_gamma(self, F, emulate_set=None):
+        if emulate_set is not None:
+            self.disc.set_emulated_input_sample_set(emulate_set)
+        elif self.disc.emulated_input_sample_set is None:
+            raise wrong_critera("Need emulated points.")
+        self.disc.set_emulated_ii_ptr()
+
+        F_vec = np.fabs(F(self.disc.emulated_input_sample_set._values))
+        #zs = np.greater(F_vec, 1.0e-12)
+        #pdiff = self.disc_enhanced._input_sample_set._probabilities - self.disc._input_sample_set._probabilities
+        cells = np.greater(np.fabs(self.disc_enhanced._input_sample_set._probabilities, self.disc._input_sample_set._probabilities), 1.0e-12)
+        #cells_m
+        #self.disc._emulated_ii_ptr
+        #cells = np.logical_and(cell, zs)
+        #vol = np.sum(self.disc._input_sample_set._volumes[cells])
+        #vol = np.average(cells)
+        self.gamma = np.average(F_vec[cells_em])        
+        return self.gamma
+
+    def calculate_E_prob(self, F, emulate_set=None):
+        if self.gamma is None:
+            self.calculate_gamma(F, emulate_set)
+        E_prob = self.gamma * np.fabs(self.disc_enhanced._input_sample_set._probabilities, self.disc._input_sample_set._probabilities)
+        return E_prob
+                                      
                 
             
