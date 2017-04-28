@@ -674,8 +674,12 @@ class sampler_hpl_adaptive(bsam.sampler):
         levels_local = []
         
         for j in inds:
-            x_loc1 = x[np.equal(self.ptr1, j),:]
-            x_loc2 = x[np.equal(self.ptr2, j),:]
+            id1 = np.equal(self.ptr1, j)
+            x_loc1 = x[id1,:]
+            F1 = self.F1[id1]
+            id2 = np.equal(self.ptr2, j)
+            x_loc2 = x_enhanced[id2,:]
+            F2 = self.F2[id2]
             (_, ptr1) = subgrid_set.query(x_loc1)
             (_, ptr2) = subgrid_set.query(x_loc2)
             #nums1 = len(x_loc1)
@@ -690,11 +694,11 @@ class sampler_hpl_adaptive(bsam.sampler):
             for i in range(num_s):
                 io1 = np.equal(ptr1, i)#, np.equal(self.ptr1, j))
                 if np.sum(io1) > 0:
-                    int1[i] = np.sum(self.F1[io1])/n1
+                    int1[i] = np.sum(F1[io1])/n1
                     prob1[i] = float(np.sum(io1))/n1
                 io2 = np.equal(ptr2, i)#, np.equal(self.ptr2, j))
                 if np.sum(io2) > 0:
-                    int2[i] = np.sum(self.F2[io2])/n2
+                    int2[i] = np.sum(F2[io2])/n2
                     #prob1[i] = float(np.sum(io1))/n1
                     prob2[i] = float(np.sum(io2))/n2
             
@@ -712,32 +716,36 @@ class sampler_hpl_adaptive(bsam.sampler):
         proposal_local = np.array(proposal_local)
         return (E_local, proposal_local, levels_local)
 
-    def hl_step_chain(self, x, x_enhanced, subgrid_set, factor=0.2):
+    def hl_step_setup_chain(self, x, x_enhanced, subgrid_set, factor=0.2):
         (ee, int1, int2) = self.calculate_ee_chain(x,x_enhanced)
         max_ee = np.max(ee)
         num_go = np.sum(np.greater(ee, factor*max_ee))
         inds = np.argsort(ee)[::-1][0:num_go+1]
         E = ee[inds]
         (El, props, levels) = self.calculate_subgrid_ee_chain(inds, subgrid_set, x, x_enhanced)
-        hList=[]
+        self.hList=[]
         propsList=[]
         levelsList=[]
-        lList=[]
+        self.lList=[]
         for i in range(len(inds)):
-            if El[i]/E[i] > 1.5:
-                hList.append(inds[i])
+            if (El[i]/E[i] < 1.1) and (self.disc._input_sample_set._levels[i] < (self.num_levels - 1)):
+                print El[i]/E[i]
+                self.lList.append(inds[i])
+            else:
+                self.hList.append(inds[i])
                 propsList.append(props[i])
                 levelsList.append(levels[i])
-            else:
-                lList.append(inds[i])
+               
 
-        props = np.array(propsList)
-        levels = np.array(levelsList)
-        if len(hList) > 0:
-            self.h_refinement(props, levels)
+        self.props = np.array(propsList)
+        self.levels = np.array(levelsList)
+        return (int1, int2, np.sum(ee))
+    def hl_step_chain(self):
+        if len(self.hList) > 0:
+            self.h_refinement(self.props, self.levels)
             self.disc._input_sample_set.kdtree = None
-        if len(lList) > 0:
-            self.level_refinement(lList)
+        if len(self.lList) > 0:
+            self.level_refinement(self.lList)
             
         self.disc._io_ptr = None
         self.disc._io_ptr_local = None            
@@ -758,30 +766,32 @@ class sampler_hpl_adaptive(bsam.sampler):
         current_levels = self.disc._input_sample_set._levels[indices]
         #import pdb
         #pdb.set_trace()
-        for i in range(num_models-1, -1, -1):
+        indices = np.array(indices)
+        for i in range(0, num_models-1):
             #import pdb
             #pdb.set_trace()
             inds = indices[np.equal(current_levels, i)]
             num_new = len(inds)
-            new_sset = sample.sample_set(self.disc._input_sample_set._dim)
-            new_sset.set_domain(self.disc._input_sample_set._domain)
-            new_sset.set_values(self.disc._input_sample_set._values[inds,:])
+            if num_new > 0:
+                new_sset = sample.sample_set(self.disc._input_sample_set._dim)
+                new_sset.set_domain(self.disc._input_sample_set._domain)
+                new_sset.set_values(self.disc._input_sample_set._values[inds,:])
 
-   
-            new_sampler = bsam.sampler(self.lb_model_list[i],
-                                       error_estimates = self.error_estimates,
-                                       jacobians = self.jacobians)
-            new_disc = new_sampler.compute_QoI_and_create_discretization(
-                new_sset,
-                savefile=None,
-                globalize=True)
-            self.disc._output_sample_set._values[inds,:] = new_disc._output_sample_set._values[:]
-            self.disc._input_sample_set._levels[inds] = i
-            if self.error_estimates:
-                self.disc._output_sample_set._error_estimates[inds,:] = new_disc._output_sample_set._error_estimates[:]
-            if self.jacobians:
-                self.disc._input_sample_set._jacobians[inds,:] = new_disc._input_sample_set._jacobians[:]
-            self.total_evals[i] += num_new
+
+                new_sampler = bsam.sampler(self.lb_model_list[i+1],
+                                           error_estimates = self.error_estimates,
+                                           jacobians = self.jacobians)
+                new_disc = new_sampler.compute_QoI_and_create_discretization(
+                    new_sset,
+                    savefile=None,
+                    globalize=True)
+                self.disc._output_sample_set._values[inds,:] = new_disc._output_sample_set._values[:]
+                self.disc._input_sample_set._levels[inds] = i + 1
+                if self.error_estimates:
+                    self.disc._output_sample_set._error_estimates[inds,:] = new_disc._output_sample_set._error_estimates[:]
+                if self.jacobians:
+                    self.disc._input_sample_set._jacobians[inds,:] = new_disc._input_sample_set._jacobians[:]
+                self.total_evals[i+1] += num_new
         #self.disc._io_ptr = None
         #self.disc._io_ptr_local = None
         #pdb.set_trace()
@@ -799,7 +809,7 @@ class sampler_hpl_adaptive(bsam.sampler):
                 new_sset.set_values(new_vals)        
 
 
-                num_new_samples = len(inds)
+                num_new_samples = new_vals.shape[0]
                 new_sampler = bsam.sampler(self.lb_model_list[level],
                                                error_estimates = self.error_estimates,
                                                jacobians = self.jacobians)
@@ -808,6 +818,8 @@ class sampler_hpl_adaptive(bsam.sampler):
                     savefile=None,
                     globalize=True)
                 new_disc._input_sample_set.set_levels(level*np.ones((num_new_samples,), dtype=int))
+                #import pdb
+                #pdb.set_trace()
 
                 self.disc._input_sample_set.append_sample_set(
                     new_disc._input_sample_set)

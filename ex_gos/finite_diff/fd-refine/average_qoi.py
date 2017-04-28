@@ -145,3 +145,19 @@ def lb_model4(input_data):
 
 def lb_model5(input_data):
     return model_approx(input_data, h=0.00625)
+
+def predict_model_exact(input_data):
+    '''
+    Evaluate prediction model exactly.
+    '''
+    #a = ia
+    #b = ib
+    # intialize outputs
+    #num_runs = input_data.shape[0]
+    #values = np.zeros((num_runs, 1))
+    #jacobians = np.zeros((num_runs, 1, 2))
+    #error_estimates = np.zeros((num_runs, 1))
+    k = input_data[:,0]
+    alpha = input_data[:,1]
+    f = 1.0/(k*alpha**2) * (0.5 - np.exp(0.5*alpha) + 0.5*np.exp(alpha))
+    return f

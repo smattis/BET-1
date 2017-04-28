@@ -2,7 +2,7 @@ import numpy as np
 import bet.sample as samp
 import bet.sampling.goalOrientedSampling as gos
 import bet.surrogates as surrogates
-from average_qoi import lb_model0, lb_model1, lb_model2, lb_model3, lb_model4, lb_model_exact
+from average_qoi import lb_model0, lb_model1, lb_model2, lb_model3, lb_model4, lb_model_exact, predict_model_exact
 from ex_mcmc import run_mcmc, calc_measures, run_mcmc_exact
 import bet.postProcess.plotVoronoi as pv
 import bet.sampling.basicSampling as bsam
@@ -19,8 +19,8 @@ def F(lam):
 
 
 #Exact answer
-(x_exact, y_exact) = run_mcmc_exact(lb_model_exact, 10000)
-int_exact = np.average(F(x_exact), axis=0)
+(x_exact, y_exact) = run_mcmc_exact(lb_model_exact, 100000)
+int_exact = np.average(predict_model_exact(x_exact), axis=0)
 print 'Exact integral: ', int_exact
 
 # Run with surrogate
@@ -28,7 +28,7 @@ print 'Exact integral: ', int_exact
 #s_set.setup(maxes=[[3.0], [3.0]], mins=[[0.0], [-1.0]])
 #s_set.set_region(np.array([0,1]))
 
-sampler = gos.sampler_hpl_adaptive([lb_model0, lb_model1, lb_model2, lb_model3, lb_model4], f=F, jacobians=True)
+sampler = gos.sampler_hpl_adaptive([lb_model0, lb_model1, lb_model2, lb_model3, lb_model4], f=predict_model_exact, jacobians=True)
 
 input_samples = samp.sample_set(2)
 domain = np.array([[0.0, 3.0], [-1.0, 3.0]])
@@ -44,17 +44,22 @@ subgrid_set = bsam.random_sample_set('r', domain, num_samples=int(1E4))
 
 #import pdb
 #pdb.set_trace()
+xList = []
+yList = []
+errorList = []
+lw=[]
+up=[]
 
-for i in range(5):
+for i in range(15):
     my_discretization._input_sample_set.set_kdtree()
 
     sur = surrogates.piecewise_polynomial_surrogate(my_discretization)
 
-    N=10000
+    N=100000
 
     (x2, y2, p_meas2) = run_mcmc(sur, N, order=1, ee=True)
     (x1, y1, p_meas1) = run_mcmc(sur, N, order=1, ee=False)
-    sampler.hl_step_chain(x1, x2, subgrid_set, 0.1)
+    (int1, int2, Ei) = sampler.hl_step_setup_chain(x1, x2, subgrid_set, 0.05)
     #sampler.set_probabilities(p_meas1, p_meas2)
     #F1 = F(my_discretization._input_sample_set._values)
     #sampler.calculate_gamma()
@@ -67,9 +72,32 @@ for i in range(5):
     #pdb.set_trace()
     #(x2, y2, p_meas2) = run_mcmc(sur, N, order=1, ee=True)
     #F2 = F(my_discretization._input_sample_set._values)
-    # print "exact integral = ", int_exact
-    # print 'P1 =  ', int1 #np.dot(F1, p_meas1), np.average(F(x1))
-    # print 'P2 =  ', int2 #np.dot(F1, p_meas2), np.average(F(x2))
+    print "exact integral = ", int_exact
+    print 'P1 =  ', int1 #np.dot(F1, p_meas1), np.average(F(x1))
+    print 'P2 =  ', int2 #np.dot(F1, p_meas2), np.average(F(x2))
+    print 'E_sum = ', Ei
+    print "integral bound = ", (int1 - np.sum(sampler.ee_int)), (int1 + np.sum(sampler.ee_int))
+    print "Model Evals = ", sampler.total_evals[:]
+    xList.append(i)
+    yList.append(int2)
+    lw.append(int2 - (int1-np.sum(sampler.ee_int)))
+    up.append(int1 + np.sum(sampler.ee_int)-int2)
+    #errorList.append([lw, up])
+    fig = plt.figure()
+    #print errorList
+    print lw[-1], up[-1]
+    plt.errorbar(xList, yList, yerr=[lw,up], fmt='o')
+    plt.axhline(y=int_exact, color='r')
+    plt.xlabel("Iteration")
+    plt.ylabel("Integral Estimate")
+    axes = plt.gca()
+    axes.set_xlim([xList[0]-0.1, xList[-1]+0.1])
+    #axes.set_ylim([0.1, 0.3])
+    xticks = range(len(xList))
+    plt.xticks(xticks)
+    #fig.tight_layout(pad=2)
+    plt.savefig("error_plot.png")
+    plt.close()
     sampler.disc._io_ptr = None
     sampler.disc._io_ptr_local = None
 
@@ -89,7 +117,8 @@ for i in range(5):
     #pv.plot_2D_voronoi(my_discretization, density=False, interactive=False)
     plotting.plot_hist(sampler.disc, x2, False, save=True, savename='hist_'+`i`)
     plotting.plot_error_id_voronoi(sampler.disc, False, save=True, savename='errorid_'+`i`)
-    plotting.plot_levels_voronoi(sampler.disc, False, save=True, savename='levels_'+`i`, data_range=[1.0, 5.0])
+    plotting.plot_levels_voronoi(sampler.disc, False, save=True, savename='levels_'+`i`, data_range=[0.0, 4.0])
+    sampler.hl_step_chain()
 
     #(x2, y2, p_meas2) = run_mcmc(sur, N, order=1, ee=True)
     #(x1, y1, p_meas1) = run_mcmc(sur, N, order=1, ee=False)
@@ -126,35 +155,35 @@ for i in range(5):
 
 #proposals._probabilities_local = prop_meas2
 #proposals._probabilities = prop_meas2
-N_fin = 1000000
-my_discretization._input_sample_set.set_kdtree()
-(x2, y2, p_meas2) = run_mcmc(sur, N_fin, order=1, ee=True)
-(x1, y1, p_meas1) = run_mcmc(sur, N_fin, order=1, ee=False)
-F1 = F(my_discretization._input_sample_set._values)
+# N_fin = 1000000
+# my_discretization._input_sample_set.set_kdtree()
+# (x2, y2, p_meas2) = run_mcmc(sur, N_fin, order=1, ee=True)
+# (x1, y1, p_meas1) = run_mcmc(sur, N_fin, order=1, ee=False)
+# F1 = F(my_discretization._input_sample_set._values)
 
-#print 'P1 =  ', np.dot(F1, p_meas1)
-#print 'P2 =  ', np.dot(F1, p_meas2)
-print "exact integral = ", int_exact
-print 'P1 =  ', np.dot(F1, p_meas1), np.average(F(x1))
-print 'P2 =  ', np.dot(F1, p_meas2), np.average(F(x2))
+# #print 'P1 =  ', np.dot(F1, p_meas1)
+# #print 'P2 =  ', np.dot(F1, p_meas2)
+# print "exact integral = ", int_exact
+# print 'P1 =  ', np.dot(F1, p_meas1), np.average(F(x1))
+# print 'P2 =  ', np.dot(F1, p_meas2), np.average(F(x2))
 
-my_discretization._input_sample_set._probabilities_local = p_meas1
-my_discretization._input_sample_set._probabilities = p_meas1
-my_discretization._input_sample_set.exact_volume_2D()
-pv.plot_2D_voronoi(my_discretization, density=True, interactive=False)
+# my_discretization._input_sample_set._probabilities_local = p_meas1
+# my_discretization._input_sample_set._probabilities = p_meas1
+# my_discretization._input_sample_set.exact_volume_2D()
+# pv.plot_2D_voronoi(my_discretization, density=True, interactive=False)
 
-my_discretization._input_sample_set._probabilities_local = p_meas2
-my_discretization._input_sample_set._probabilities = p_meas2
-#my_discretization._input_sample_set.exact_volume_2D()
-pv.plot_2D_voronoi(my_discretization, density=True, interactive=False)
+# my_discretization._input_sample_set._probabilities_local = p_meas2
+# my_discretization._input_sample_set._probabilities = p_meas2
+# #my_discretization._input_sample_set.exact_volume_2D()
+# pv.plot_2D_voronoi(my_discretization, density=True, interactive=False)
 
-my_discretization._input_sample_set._probabilities_local = my_discretization._input_sample_set._levels.astype(float)
-my_discretization._input_sample_set._probabilities = my_discretization._input_sample_set._levels.astype(float)
-#my_discretization._input_sample_set.exact_volume_2D()
-pv.plot_2D_voronoi(my_discretization, density=False, interactive=False)
+# my_discretization._input_sample_set._probabilities_local = my_discretization._input_sample_set._levels.astype(float)
+# my_discretization._input_sample_set._probabilities = my_discretization._input_sample_set._levels.astype(float)
+# #my_discretization._input_sample_set.exact_volume_2D()
+# pv.plot_2D_voronoi(my_discretization, density=False, interactive=False)
 
-plotting.plot_hist(x_exact, False)
-plotting.plot_hist(x2, True)
+# plotting.plot_hist(x_exact, False)
+# plotting.plot_hist(x2, True)
 
 # H, xedges, yedges = np.histogram2d(x2[:,0], x2[:,1], bins=40, range=[[0.0, 3.0], [-1.0, 3.0]])
 # H=H.T
