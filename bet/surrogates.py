@@ -255,3 +255,116 @@ class piecewise_polynomial_surrogate(object):
     #                   chain):
         
         
+    def calculate_prob_for_integral(self, emulate_set, f, order=0, update_input=True, sampler=None):
+        """
+        Solves stochastic inverse problem based on surrogate points and the
+        MC assumption. Calculates the probability of a regions of input space
+        and error estimates for those probabilities.
+
+        :param: s_set: sample set for which to calculate error
+        :type s_set: :class:`bet.sample.sample_set_base`
+        :param region: list of regions of s_set for which to calculate error
+        :type region: list
+        :param update_input: whether or not to update probabilities and
+            errror identifiers for input discretization
+        :type update_input: bool
+
+        :rtype: tuple
+        :returns: (probabilities, ``error_estimates``), the probability and
+            error estimates for the region
+        
+        """
+        em_disc1 = self.generate_for_input_set(emulate_set, order=order)
+        em_disc2 = em_disc1.copy()
+        if em_disc2._output_sample_set._values is not None:
+            em_disc2._output_sample_set._values += em_disc2._output_sample_set._error_estimates
+        if em_disc2._output_sample_set._values_local is not None:
+            em_disc2._output_sample_set._values_local += em_disc2._output_sample_set._error_estimates_local
+        em_disc1._input_sample_set.estimate_volume_mc()
+        em_disc2._input_sample_set.estimate_volume_mc()
+        calculateP.prob(em_disc1)
+        calculateP.prob(em_disc2)
+        #import pdb
+        #pdb.set_trace()
+        F = f(emulate_set._values)
+        int1 = np.dot(F, em_disc1._input_sample_set._probabilities)
+        int2 = np.dot(F, em_disc2._input_sample_set._probabilities)
+
+        if sampler is not None:
+            if self.dummy_disc._emulated_ii_ptr is None:
+                self.dummy_disc.globalize_ptrs()
+            num = self.input_disc.check_nums()
+            pmeas1 = np.zeros((num,))
+            pmeas2 = np.zeros((num,))
+            #ee_prob = np.zeros((num,))
+            ee_int = np.zeros((num,))
+            #self.input_disc._
+            for i in range(num):
+                ptr = np.equal(self.dummy_disc._emulated_ii_ptr, i)
+                pmeas1[i] = np.sum(em_disc1._input_sample_set._probabilities[ptr])
+                pmeas2[i] = np.sum(em_disc2._input_sample_set._probabilities[ptr])
+                int1_loc = np.dot(em_disc1._input_sample_set._probabilities[ptr], F[ptr])
+                int2_loc = np.dot(em_disc2._input_sample_set._probabilities[ptr], F[ptr])
+                ee_int[i] = abs(int1_loc - int2_loc)
+            prob_diff = np.fabs(pmeas2 - pmeas1)
+            prob_diff2 = np.fabs(em_disc1._input_sample_set._probabilities - em_disc2._input_sample_set._probabilities)
+            cells = np.greater(prob_diff2, 1.0e-12)
+            cells_em = cells[self.dummy_disc._emulated_ii_ptr].flat[:]
+            #import pdb
+            #pdb.set_trace()
+            gamma = np.average(np.fabs(F[cells_em]))
+            ee_prob = gamma * prob_diff
+            #self.input_discretization.
+            sampler.gamma = gamma
+            sampler.ee_int = ee_int
+            sampler.ee_prob = ee_prob
+            sampler.pmeas1 = pmeas1
+            sampler.pmeas2 = pmeas2
+        return (int1, int2) #, pmeas1, pmeas2, ee_int, ee_prob, gamma)
+        # if not hasattr(self, 'surrogate_discretization'):
+        #     msg = "surrogate discretization has not been created"
+        #     raise calculateError.wrong_argument_type(msg)
+        # if not isinstance(s_set, sample.sample_set_base):
+        #     msg = "s_set must be of type bet.sample.sample_set_base"
+        #     raise calculateError.wrong_argument_type(msg)
+            
+        # # Calculate probability of region 
+        # if self.surrogate_discretization._input_sample_set._volumes_local\
+        #         is None:
+        #     self.surrogate_discretization._input_sample_set.\
+        #             estimate_volume_mc(globalize=False)
+        # calculateP.prob(self.surrogate_discretization, globalize=False)
+        # #prob_new_values = calculateP.prob_from_sample_set(\
+        # #        self.surrogate_discretization._input_sample_set, s_set)
+        
+        # # Calculate for each region
+        # probabilities = []
+        # error_estimates = []
+        # for region in regions:
+        #     marker = np.equal(s_set._region, region)
+        #     probability = np.sum(prob_new_values[marker])
+
+        #     # Calculate error estimate for region
+        #     model_error = calculateError.model_error(\
+        #             self.surrogate_discretization)
+        #     error_estimate = model_error.calculate_for_sample_set_region_mc(\
+        #             s_set, region)
+        #     probabilities.append(probability)
+        #     error_estimates.append(error_estimate)
+        # # Update input only if 1 region is given
+        # if update_input:
+        #     num = self.input_disc._input_sample_set.check_num()
+        #     prob = np.zeros((num,))
+        #     error_id = np.zeros((num,))
+        #     for i in range(num):
+        #         Itemp = np.equal(self.dummy_disc._emulated_ii_ptr_local, i)
+        #         prob_sum = np.sum(self.surrogate_discretization.\
+        #                 _input_sample_set._probabilities_local[Itemp])
+        #         prob[i] = comm.allreduce(prob_sum, op=MPI.SUM)
+        #         error_id_sum = np.sum(self.surrogate_discretization.\
+        #                 _input_sample_set._error_id_local[Itemp])
+        #         error_id[i] = comm.allreduce(error_id_sum, op=MPI.SUM)
+        #     self.input_disc._input_sample_set.set_probabilities(prob)
+        #     self.input_disc._input_sample_set.set_error_id(error_id)
+                    
+        # return (probabilities, error_estimates)

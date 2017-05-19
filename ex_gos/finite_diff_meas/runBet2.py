@@ -9,6 +9,8 @@ import bet.sampling.basicSampling as bsam
 import matplotlib.pyplot as plt
 import matplotlib
 import plotting
+import bet.calculateP.simpleFunP as simpleFunP
+import bet.calculateP.calculateP as calculateP
 
 alpha_1 = 1.0
 alpha_2 = 1.0
@@ -19,9 +21,9 @@ def F(lam):
 
 
 #Exact answer
-(x_exact, y_exact) = run_mcmc_exact(lb_model_exact, 1000000)
-int_exact = np.average(predict_model_exact(x_exact), axis=0)
-print 'Exact integral: ', int_exact
+#(x_exact, y_exact) = run_mcmc_exact(lb_model_exact, 10000000)
+#int_exact = np.average(predict_model_exact(x_exact), axis=0)
+#print 'Exact integral: ', int_exact
 
 # Run with surrogate
 #s_set = samp.rectangle_sample_set(1)
@@ -36,16 +38,26 @@ input_samples.set_domain(domain)
 
 my_discretization = sampler.initial_samples_random('r',
                                                    input_samples,
-                                                   100,
+                                                   200,
                                                    level=0,
                                                    emulate=True,
-                                                   emulate_num=1E5)
-subgrid_set = bsam.random_sample_set('r', domain, num_samples=int(1E4))
+                                                   emulate_num=1E6)
+p_ref = np.array([[1.5, 1.0]])
 
+(Q_ref, _, _) = lb_model_exact(p_ref)
+Q_ref = Q_ref.flat[:]
+simpleFunP.regular_partition_uniform_distribution_rectangle_size(
+        data_set=my_discretization, Q_ref=Q_ref, rect_size=0.1,
+        cells_per_dimension = 1)
+#subgrid_set = bsam.random_sample_set('r', domain, num_samples=int(1E4))
+emulate_set = bsam.random_sample_set('r', domain, num_samples=int(1E4))
 #import pdb
 #pdb.set_trace()
+#sa
 xList = []
 yList = []
+yList2 = []
+zList = []
 errorList = []
 lw=[]
 up=[]
@@ -54,12 +66,16 @@ for i in range(30):
     my_discretization._input_sample_set.set_kdtree()
 
     sur = surrogates.piecewise_polynomial_surrogate(my_discretization)
+    #em_disc = sur.generate_for_input_set(emulate_set, order=1)
+    #calculateP.prob(em_disc)
+    (int1, int2) = sur.calculate_prob_for_integral(emulate_set, F, order=1, sampler=sampler)
+    import pdb
+    pdb.set_trace()
+    #N=1000000
 
-    N=1000000
-
-    (x2, y2, p_meas2) = run_mcmc(sur, N, order=1, ee=True)
-    (x1, y1, p_meas1) = run_mcmc(sur, N, order=1, ee=False)
-    (int1, int2, Ei) = sampler.hl_step_setup_chain(x1, x2, subgrid_set, 0.05)
+    #(x2, y2, p_meas2) = run_mcmc(sur, N, order=1, ee=True)
+    #(x1, y1, p_meas1) = run_mcmc(sur, N, order=1, ee=False)
+    #(int1, int2, Ei) = sampler.hl_step_setup_chain(x1, x2, subgrid_set, 0.005)
     #sampler.set_probabilities(p_meas1, p_meas2)
     #F1 = F(my_discretization._input_sample_set._values)
     #sampler.calculate_gamma()
@@ -72,32 +88,57 @@ for i in range(30):
     #pdb.set_trace()
     #(x2, y2, p_meas2) = run_mcmc(sur, N, order=1, ee=True)
     #F2 = F(my_discretization._input_sample_set._values)
-    print "exact integral = ", int_exact
-    print 'P1 =  ', int1 #np.dot(F1, p_meas1), np.average(F(x1))
-    print 'P2 =  ', int2 #np.dot(F1, p_meas2), np.average(F(x2))
-    print 'E_sum = ', Ei
-    print "integral bound = ", (int1 - np.sum(sampler.ee_int)), (int1 + np.sum(sampler.ee_int))
-    print "Model Evals = ", sampler.total_evals[:]
-    xList.append(i)
-    yList.append(int2)
-    lw.append(int2 - (int1-np.sum(sampler.ee_int)))
-    up.append(int1 + np.sum(sampler.ee_int)-int2)
-    #errorList.append([lw, up])
-    fig = plt.figure()
-    #print errorList
-    print lw[-1], up[-1]
-    plt.errorbar(xList, yList, yerr=[lw,up], fmt='o')
-    plt.axhline(y=int_exact, color='r')
-    plt.xlabel("Iteration")
-    plt.ylabel("Integral Estimate")
-    axes = plt.gca()
-    axes.set_xlim([xList[0]-0.1, xList[-1]+0.1])
-    #axes.set_ylim([0.1, 0.3])
-    xticks = range(len(xList))
-    plt.xticks(xticks)
-    #fig.tight_layout(pad=2)
-    plt.savefig("error_plot.png")
-    plt.close()
+    # print "exact integral = ", int_exact
+    # print 'P1 =  ', int1 #np.dot(F1, p_meas1), np.average(F(x1))
+    # print 'P2 =  ', int2 #np.dot(F1, p_meas2), np.average(F(x2))
+    # print 'E_sum = ', Ei
+    # print "integral bound = ", (int1 - np.sum(sampler.ee_int)), (int1 + np.sum(sampler.ee_int))
+    # print "Model Evals = ", sampler.total_evals[:]
+    # xList.append(i)
+    # yList.append(int2)
+    # yList2.append(int1)
+    # samp.save_discretization(sampler.disc, 'disc'+`i`)
+    
+    #zList.append(np.average(sampler.ee_int + sampler.ee_prob)) # maybe mult by volume?
+    # zList.append(abs(int2-int1))
+    # lw.append(int2 - (int1-np.sum(sampler.ee_int)))
+    # up.append(int1 + np.sum(sampler.ee_int)-int2)
+    # #errorList.append([lw, up])
+    # fig = plt.figure()
+    # #print errorList
+    # print lw[-1], up[-1]
+    # #plt.errorbar(xList, yList, yerr=[lw,up], fmt='o')
+    # plt.plot(xList, yList, 'og', label='enhanced estimate')
+    # plt.plot(xList, yList2, 'ob', label = 'estimate')
+    # plt.axhline(y=int_exact, color='r', label='true')
+    # plt.xlabel("Iteration")
+    # plt.ylabel("Integral Estimate")
+    # plt.legend(loc='best')
+    # axes = plt.gca()
+    # axes.set_xlim([xList[0]-0.1, xList[-1]+0.1])
+    # #axes.set_ylim([0.1, 0.3])
+    # xticks = range(len(xList))
+    # plt.xticks(xticks)
+    # #fig.tight_layout(pad=2)
+    # plt.savefig("error_plot.png")
+    # plt.close()
+
+    # fig2 = plt.figure()
+    # #print errorList
+    # print lw[-1], up[-1]
+    # plt.plot(xList, zList) #, yerr=[lw,up], fmt='o')
+    # #plt.axhline(y=int_exact, color='r')
+    # plt.xlabel("Iteration")
+    # plt.ylabel("Error")
+    # axes = plt.gca()
+    # axes.set_xlim([xList[0]-0.1, xList[-1]+0.1])
+    # #axes.set_ylim([0.1, 0.3])
+    # xticks = range(len(xList))
+    # plt.xticks(xticks)
+    # #fig.tight_layout(pad=2)
+    # plt.savefig("error_plot2.png")
+    # plt.close()
+    
     sampler.disc._io_ptr = None
     sampler.disc._io_ptr_local = None
 

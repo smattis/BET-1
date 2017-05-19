@@ -157,8 +157,11 @@ def predict_model_exact(input_data):
     #values = np.zeros((num_runs, 1))
     #jacobians = np.zeros((num_runs, 1, 2))
     #error_estimates = np.zeros((num_runs, 1))
-    x = 0.95
+    x = 0.83
     k = input_data[:,0]
     alpha = input_data[:,1]
-    f = 1.0/(k*alpha**2) * (1.0 - x - np.exp(alpha*x) + x*np.exp(alpha))
+    #f = 1.0/(k*alpha**2) * (0.5 - np.exp(0.5*alpha) + 0.5*np.exp(alpha))
+    #f = 1.0/(k*alpha**2) * (1.0 - x - np.exp(alpha*x) + x*np.exp(alpha))
+    # du/dx at x
+    f = (-alpha * np.exp(alpha * x) - 1 + np.exp(alpha)) / k / alpha ** 2
     return f
