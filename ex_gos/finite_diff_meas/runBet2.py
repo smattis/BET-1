@@ -15,8 +15,8 @@ import bet.calculateP.calculateP as calculateP
 alpha_1 = 1.0
 alpha_2 = 1.0
 
-def F(lam):
-    return np.greater(lam[:, 0], 1.00).astype(float)
+#def F(lam):
+#    return np.greater(lam[:, 0], 1.00).astype(float)
 
 
 
@@ -33,7 +33,7 @@ def F(lam):
 sampler = gos.sampler_hpl_adaptive([lb_model0, lb_model1, lb_model2, lb_model3, lb_model4], f=predict_model_exact, jacobians=True)
 
 input_samples = samp.sample_set(2)
-domain = np.array([[0.0, 3.0], [-1.0, 3.0]])
+domain = np.array([[1.0, 3.0], [1.0, 3.0]])
 input_samples.set_domain(domain)
 
 my_discretization = sampler.initial_samples_random('r',
@@ -42,7 +42,7 @@ my_discretization = sampler.initial_samples_random('r',
                                                    level=0,
                                                    emulate=True,
                                                    emulate_num=1E6)
-p_ref = np.array([[1.5, 1.0]])
+p_ref = np.array([[1.5, 1.5]])
 
 (Q_ref, _, _) = lb_model_exact(p_ref)
 Q_ref = Q_ref.flat[:]
@@ -50,9 +50,33 @@ simpleFunP.regular_partition_uniform_distribution_rectangle_size(
         data_set=my_discretization, Q_ref=Q_ref, rect_size=0.1,
         cells_per_dimension = 1)
 #subgrid_set = bsam.random_sample_set('r', domain, num_samples=int(1E4))
-emulate_set = bsam.random_sample_set('r', domain, num_samples=int(1E4))
-#import pdb
-#pdb.set_trace()
+emulate_set = bsam.random_sample_set('r', domain, num_samples=int(1E5))
+
+true_set = emulate_set.copy()
+sampler_true = bsam.sampler(lb_model=lb_model_exact)
+disc_true = sampler_true.compute_QoI_and_create_discretization(input_sample_set=true_set)
+simpleFunP.regular_partition_uniform_distribution_rectangle_size(
+        data_set=disc_true, Q_ref=Q_ref, rect_size=0.1,
+        cells_per_dimension = 1)
+disc_true._input_sample_set.estimate_volume_mc(globalize=True)
+calculateP.prob(disc_true)
+#disc_true._input_sample_set.local_to_global()
+int_true = np.dot(disc_true._input_sample_set._probabilities, predict_model_exact(disc_true._input_sample_set._values))
+
+
+X = np.linspace(domain[0][0], domain[0][1], 30)
+Y = np.linspace(domain[1][0], domain[1][1], 30)
+X, Y = np.meshgrid(X,Y)
+Z = np.zeros((30,30))
+for i in range(30):
+    for j in range(30):
+        Z[i,j] = predict_model_exact(np.array([[X[i,j], Y[i,j]]]))
+plt.imshow(Z, extent=domain.flat[:])
+plt.colorbar()
+plt.show()
+
+import pdb
+pdb.set_trace()
 #sa
 xList = []
 yList = []
@@ -65,12 +89,17 @@ up=[]
 for i in range(30):
     my_discretization._input_sample_set.set_kdtree()
 
-    sur = surrogates.piecewise_polynomial_surrogate(my_discretization)
+    #sur = surrogates.piecewise_polynomial_surrogate(my_discretization)
     #em_disc = sur.generate_for_input_set(emulate_set, order=1)
     #calculateP.prob(em_disc)
-    (int1, int2) = sur.calculate_prob_for_integral(emulate_set, F, order=1, sampler=sampler)
-    import pdb
-    pdb.set_trace()
+    #(int1, int2) = sur.calculate_prob_for_integral(emulate_set, predict_model_exact, order=1, sampler=sampler)
+    #import pdb
+    #pdb.set_trace()
+    #sampler.calculate_subgrid_local_mt(inds=[2, 4, 6], num_local=10, sur=sur)
+    (int1, int2, ee_sum) = sampler.hl_step_setup_mt(emulate_set, predict_model_exact, 10, 0.005)
+    #sampler.hl_step_mt()
+    #import pdb
+    #pdb.set_trace()
     #N=1000000
 
     #(x2, y2, p_meas2) = run_mcmc(sur, N, order=1, ee=True)
@@ -147,8 +176,15 @@ for i in range(30):
     #import pdb
     #pdb.set_trace()
     #marked = mark(my_discretization._input_sample_set._values)
+    my_discretization._input_sample_set._probabilities_local = sampler.pmeas2
+    my_discretization._input_sample_set._probabilities = sampler.pmeas2
+    sampler.disc._input_sample_set.estimate_volume_emulated(emulate_set)
+    pv.plot_2D_voronoi(sampler.disc, density=True, interactive=False)
+    #if save:
+    plt.savefig('prob_'+`i` + '.png')
+    plt.close()
 
-    e_id = sampler.disc._input_sample_set._error_estimates
+    e_id = my_discretization._input_sample_set._error_id #sampler.disc._input_sample_set._error_estimates
     my_discretization._input_sample_set._probabilities_local = e_id
     
     my_discretization._input_sample_set._probabilities = e_id
@@ -156,10 +192,14 @@ for i in range(30):
     #my_discretization._input_sample_set._error_id_local = e_id
     #my_discretization._input_sample_set._error_id = e_id
     #pv.plot_2D_voronoi(my_discretization, density=False, interactive=False)
-    plotting.plot_hist(sampler.disc, x2, False, save=True, savename='hist_'+`i`)
+    #plotting.plot_hist(sampler.disc, x2, False, save=True, savename='hist_'+`i`)
     plotting.plot_error_id_voronoi(sampler.disc, False, save=True, savename='errorid_'+`i`)
     plotting.plot_levels_voronoi(sampler.disc, False, save=True, savename='levels_'+`i`, data_range=[0.0, 4.0])
-    sampler.hl_step_chain()
+    sampler.hl_step_mt()
+    print int_true
+    print (int1, int2)
+    #import pdb
+    #pdb.set_trace()
 
     #(x2, y2, p_meas2) = run_mcmc(sur, N, order=1, ee=True)
     #(x1, y1, p_meas1) = run_mcmc(sur, N, order=1, ee=False)

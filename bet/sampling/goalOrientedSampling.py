@@ -787,6 +787,88 @@ class sampler_hpl_adaptive(bsam.sampler):
         #import pdb
         #pdb.set_trace()
         return (E_local, proposal_local, levels_local)
+    
+    def calculate_subgrid_local_mt(self, inds, sur, num_local=10):
+        #n1 = float(len(x))
+        #n2 = float(len(x_enhanced))
+        E_local = []
+        proposal_local = []
+        levels_local = []
+        #self.dist = None
+        
+        for j in inds:
+            #id1 = np.equal(self.ptr1, j)
+            #x_loc1 = x[id1,:]
+            id1 = np.equal(sur.dummy_disc._emulated_ii_ptr, j)
+            F1 = self.F[id1]
+            #id2 = np.equal(self.ptr2, j)
+            #id1 = np.equal(self.dummy_disc._emulated_ii_ptr, j)
+
+            #x_loc2 = x_enhanced[id2,:]
+            #F2 = self.F2[id2]
+            #em_inds = np.equal(self.disc._emulated_ii_ptr, j)
+            em_vals_local = sur.dummy_disc._emulated_input_sample_set._values[id1]
+            if em_vals_local.shape[0] < 2:
+            #    if self.dist is not None:
+                domain = [self.disc._input_sample_set._values[j]-0.05,self.disc._input_sample_set._values[j]+0.05]
+                domain = np.array(domain).transpose()
+            else:
+                    
+                domain = zip(np.min(em_vals_local, axis=0), np.max(em_vals_local, axis=0))
+                domain = np.array(domain)
+            dsize = domain[:,1] - domain[:,0]
+            d_cent = 0.5*(domain[:,0] + domain[:,1])
+            dsize *= 0.75
+            domain_local = zip(d_cent - dsize, d_cent + dsize)
+            domain_local = np.array(domain_local)
+            sample_set_local = sample.sample_set(self.disc._input_sample_set._dim)
+            sample_set_local.set_domain(domain_local)
+            sample_set_local = bsam.random_sample_set('r', sample_set_local, num_local)
+            sample_set_local.set_kdtree()
+            #(_, ptr1) = sample_set_local.query(x_loc1)
+            #(_, ptr2) = sample_set_local.query(x_loc2)
+            (_, ptr1) = sample_set_local.query(em_vals_local) #sur.dummy_disc._emulated_input_sample_set._values[id1])
+
+            num_s = num_local
+            int1 = np.zeros((num_s,))
+            int2 = np.zeros((num_s,))
+            prob1 = np.zeros((num_s,))
+            prob2 = np.zeros((num_s,))
+            for i in range(num_s):
+                io1 = np.equal(ptr1, i)#, np.equal(self.ptr1, j))
+                if np.sum(io1) > 0:
+                    #int1[i] = np.sum(F1[io1])/n1
+                    #prob1[i] = float(np.sum(io1))/n1
+                    #import pdb
+                    #pdb.set_trace()
+                    int1[i] = np.dot(F1[io1], self.em_disc1._input_sample_set._probabilities[id1][io1])
+                    int2[i] = np.dot(F1[io1], self.em_disc2._input_sample_set._probabilities[id1][io1])
+                    prob1[i] = np.sum(self.em_disc1._input_sample_set._probabilities[id1][io1])
+                    prob2[i] = np.sum(self.em_disc2._input_sample_set._probabilities[id1][io1])
+                    #import pdb
+                    #pdb.set_trace()
+            
+                #io2 = np.equal(ptr2, i)#, np.equal(self.ptr2, j))
+                #if np.sum(io2) > 0:
+                #    int2[i] = np.sum(F2[io2])/n2
+                #    #prob1[i] = float(np.sum(io1))/n1
+                #    prob2[i] = float(np.sum(io2))/n2
+                    
+            ee_int = np.fabs(int1-int2)
+            #self.disc._input_sample_set_probabilities = prob1
+            #self.probabilities_enhanced = prob2
+            prob_diff = np.fabs(prob1 - prob2)
+            ee_prob = self.gamma * prob_diff 
+            ee = ee_int + ee_prob
+            E_local.append(np.sum(ee))
+            imax = np.argmax(ee)
+            proposal_local.append(sample_set_local._values[imax,:])
+            levels_local.append(self.disc._input_sample_set._levels[j])
+        E_local = np.array(E_local)
+        proposal_local = np.array(proposal_local)
+        #import pdb
+        #pdb.set_trace()
+        return (E_local, proposal_local, levels_local)
 
     def calculate_subgrid_local2(self, inds, x, x_enhanced, num_local=10):
         n1 = float(len(x))
@@ -854,6 +936,58 @@ class sampler_hpl_adaptive(bsam.sampler):
         return (E_local, proposal_local, levels_local)
             
 
+    def hl_step_setup_mt(self, emulate_set, f, num_local=10, factor=0.2):
+        #(ee, int1, int2) = self.calculate_ee_chain(x,x_enhanced)
+        sur = surrogates.piecewise_polynomial_surrogate(self.disc)
+        (int1, int2) = sur.calculate_prob_for_integral(emulate_set, f, order=1, sampler=self)
+        ee = self.ee
+        max_ee = np.max(ee)
+        num_go = np.sum(np.greater(ee, factor*max_ee))
+        inds = np.argsort(ee)[::-1][0:num_go+1]
+        E = ee[inds]
+        # SAM (El, props, levels) = self.calculate_subgrid_ee_chain(inds, subgrid_set, x, x_enhanced)
+        (El, props, levels) = self.calculate_subgrid_local_mt(inds, num_local=10, sur=sur)
+        self.hList=[]
+        propsList=[]
+        levelsList=[]
+        self.lList=[]
+        for i in range(len(inds)):
+            if (El[i]/E[i] < 1.02) and (self.disc._input_sample_set._levels[i] < (self.num_levels - 1)):
+                print El[i]/E[i]
+                self.lList.append(inds[i])
+            else:
+                self.hList.append(inds[i])
+                propsList.append(props[i])
+                levelsList.append(levels[i])
+               
+
+        self.props = np.array(propsList)
+        self.levels = np.array(levelsList)
+        self.disc._input_sample_set._error_id = ee
+        return (int1, int2, np.sum(ee))
+
+    def hl_step_mt(self):
+        if len(self.hList) > 0:
+            self.h_refinement(self.props, self.levels)
+            self.disc._input_sample_set.kdtree = None
+        if len(self.lList) > 0:
+            self.level_refinement(self.lList)
+            
+        self.disc._io_ptr = None
+        self.disc._io_ptr_local = None 
+    
+    def hl_step_chain(self):
+        if len(self.hList) > 0:
+            self.h_refinement(self.props, self.levels)
+            self.disc._input_sample_set.kdtree = None
+        if len(self.lList) > 0:
+            self.level_refinement(self.lList)
+            
+        self.disc._io_ptr = None
+        self.disc._io_ptr_local = None            
+        
+        # import pdb
+        # pdb.set_trace()
     def hl_step_setup_chain(self, x, x_enhanced, subgrid_set, factor=0.2):
         (ee, int1, int2) = self.calculate_ee_chain(x,x_enhanced)
         max_ee = np.max(ee)
@@ -879,18 +1013,6 @@ class sampler_hpl_adaptive(bsam.sampler):
         self.props = np.array(propsList)
         self.levels = np.array(levelsList)
         return (int1, int2, np.sum(ee))
-    def hl_step_chain(self):
-        if len(self.hList) > 0:
-            self.h_refinement(self.props, self.levels)
-            self.disc._input_sample_set.kdtree = None
-        if len(self.lList) > 0:
-            self.level_refinement(self.lList)
-            
-        self.disc._io_ptr = None
-        self.disc._io_ptr_local = None            
-        
-        # import pdb
-        # pdb.set_trace()
         
     def level_refinement(self,
                          indices):

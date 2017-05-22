@@ -318,8 +318,12 @@ class piecewise_polynomial_surrogate(object):
             sampler.gamma = gamma
             sampler.ee_int = ee_int
             sampler.ee_prob = ee_prob
+            sampler.ee = ee_int + ee_prob
             sampler.pmeas1 = pmeas1
             sampler.pmeas2 = pmeas2
+            sampler.em_disc1 = em_disc1
+            sampler.em_disc2 = em_disc2
+            sampler.F = F
         return (int1, int2) #, pmeas1, pmeas2, ee_int, ee_prob, gamma)
         # if not hasattr(self, 'surrogate_discretization'):
         #     msg = "surrogate discretization has not been created"

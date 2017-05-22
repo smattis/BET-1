@@ -33,7 +33,8 @@ def plot_hist(disc, x, show=True, save=False, savename = 'hist'):
 def plot_error_id_voronoi(disc, show=True, save=False, savename = 'error_id', label="error identifier"):
     disc._input_sample_set._probabilities_local = disc._input_sample_set._error_id
     disc._input_sample_set._probabilities = disc._input_sample_set._error_id
-    disc._input_sample_set.exact_volume_2D()
+    if disc._input_sample_set._volumes is None:
+        disc._input_sample_set.exact_volume_2D()
     pv.plot_2D_voronoi(disc, density=True, interactive=show, label=label)
     if save:
         plt.savefig(savename + '.png')
@@ -52,7 +53,8 @@ def plot_levels_voronoi(disc, show=True, save=False, savename = 'levels', data_r
 def plot_prob_voronoi(disc, pmeas, show=True, save=False, savename = 'prob'):
     disc._input_sample_set._probabilities_local = pmeas
     disc._input_sample_set._probabilities = pmeas
-    disc._input_sample_set.exact_volume_2D()
+    if disc._input_sample_set._volumes is None:
+        disc._input_sample_set.exact_volume_2D()
     pv.plot_2D_voronoi(disc, density=True, interactive=show)
     if save:
         plt.savefig(savename + '.png')
