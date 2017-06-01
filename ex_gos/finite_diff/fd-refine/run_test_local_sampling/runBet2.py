@@ -20,7 +20,7 @@ def F(lam):
 
 
 #Exact answer
-(x_exact, y_exact) = run_mcmc_exact(lb_model_exact, 10000)
+(x_exact, y_exact) = run_mcmc_exact(lb_model_exact, 100000)
 int_exact = np.average(predict_model_exact(x_exact), axis=0)
 print 'Exact integral: ', int_exact
 
@@ -37,7 +37,7 @@ input_samples.set_domain(domain)
 
 my_discretization = sampler.initial_samples_random('r',
                                                    input_samples,
-                                                   200,
+                                                   100,
                                                    level=0,
                                                    emulate=True,
                                                    emulate_num=1E4)
@@ -58,12 +58,12 @@ for i in range(30):
 
     sur = surrogates.piecewise_polynomial_surrogate(my_discretization)
 
-    N=10000
+    N=100000
 
     (x2, y2, p_meas2) = run_mcmc(sur, N, order=1, ee=True)
     (x1, y1, p_meas1) = run_mcmc(sur, N, order=1, ee=False)
     #start = time.time()
-    (int1, int2, Ei) = sampler.hl_step_setup_chain_no_subgrid_local(x1, x2, 0.005, 10, 0.4)
+    (int1, int2, Ei) = sampler.hl_step_setup_chain_no_subgrid_local(x1, x2, 0.005, 5, 1.2)
     # end = time.time()
     # print "Time local: ", end-start
     # start = time.time()

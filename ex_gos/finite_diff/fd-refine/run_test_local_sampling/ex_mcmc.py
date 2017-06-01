@@ -38,11 +38,11 @@ def calc_measures(cellList, num_vor):
 # Chain length
 #N=100000
 
-def run_mcmc(sur, N=100, order=1, ee=True):
+def run_mcmc(sur, N=100, order=1, ee=True, burn=1000, pm=False):
     # Initialize state
     yList=[]
     cellList=[]
-    x = np.empty((N,2))
+    x = np.empty((N+burn,2))
     x[0,:] = np.array([1.5, 1.5])
     y = sur.evaluate_at_values(np.array([x[0,:]]), order, ee)#model(np.array([x[0,:]]))
     cellList.append(y[1][0])
@@ -70,24 +70,28 @@ def run_mcmc(sur, N=100, order=1, ee=True):
         if rand.uniform(0.0, 1.0) < rho:
             x[its,:] = np.array([x_prop0, x_prop1]) #np.vstack((x, np.array([[x_prop0, x_prop1]])))
             yList.append(y)
-            cellList.append(cell)
+            if pm:
+                cellList.append(cell)
             y = y_prop
             its += 1
-            if its == N:
+            if its == N+burn:
                 go = False
             if total%10000 == 0:
-                print float(its)/float(N)
+                print float(its)/float(N+burn)
     #unique, count = np.unique(cellList, return_counts=True)
     #p_meas = np.zeros((sur.input_disc.check_nums(),))
     #p_meas[unique] = count.astype(float)
     #p_meas = p_meas/float(N)
     #import pdb
     #pdb.set_trace()
-    p_meas = calc_measures(cellList, sur.input_disc.check_nums())
-    print float(its)/float(total)
-    H, xedges, yedges = np.histogram2d(x[:,0], x[:,1], bins=40, range=[[0.0, 3.0], [-1.0, 3.0]])
-    H=H.T
-    H = H/float(N)
+    if pm:
+        p_meas = calc_measures(cellList, sur.input_disc.check_nums())
+    else:
+        p_meas = None
+    # print float(its)/float(total)
+    # H, xedges, yedges = np.histogram2d(x[:,0], x[:,1], bins=40, range=[[0.0, 3.0], [-1.0, 3.0]])
+    # H=H.T
+    # H = H/float(N+burn)
     # fig = plt.figure()
     # colormap_type='BuGn'
     # cmap = matplotlib.cm.get_cmap(colormap_type)
@@ -102,14 +106,14 @@ def run_mcmc(sur, N=100, order=1, ee=True):
     # font = matplotlib.font_manager.FontProperties(size=20)
     # text.set_font_properties(font)
     # #plt.show()
-    return (x, y, p_meas)
+    return (x[burn::], y[burn::], p_meas)
 
 
-def run_mcmc_exact(model, N=100):
+def run_mcmc_exact(model, N=100, burn=1000):
     # Initialize state
     yList=[]
     cellList=[]
-    x = np.empty((N,2))
+    x = np.empty((N+burn,2))
     x[0,:] = np.array([1.5, 1.5])
     y = model(np.array([x[0,:]])) #, order, ee)#model(np.array([x[0,:]]))
     #cellList.append(y[1][0])
@@ -140,10 +144,10 @@ def run_mcmc_exact(model, N=100):
             #cellList.append(cell)
             y = y_prop
             its += 1
-            if its == N:
+            if its == N + burn:
                 go = False
             if total%10000 == 0:
-                print float(its)/float(N)
+                print float(its)/float(N + burn)
     #unique, count = np.unique(cellList, return_counts=True)
     #p_meas = np.zeros((sur.input_disc.check_nums(),))
     #p_meas[unique] = count.astype(float)
@@ -151,10 +155,10 @@ def run_mcmc_exact(model, N=100):
     #import pdb
     #pdb.set_trace()
     #p_meas = calc_measures(cellList, sur.input_disc.check_nums())
-    print float(its)/float(total)
-    H, xedges, yedges = np.histogram2d(x[:,0], x[:,1], bins=40, range=[[0.0, 3.0], [-1.0, 3.0]])
-    H=H.T
-    H = H/float(N)
+    #print float(its)/float(total)
+    #H, xedges, yedges = np.histogram2d(x[:,0], x[:,1], bins=40, range=[[0.0, 3.0], [-1.0, 3.0]])
+    #H=H.T
+    #H = H/float(N)
     # fig = plt.figure()
     # colormap_type='BuGn'
     # cmap = matplotlib.cm.get_cmap(colormap_type)
@@ -169,4 +173,4 @@ def run_mcmc_exact(model, N=100):
     # font = matplotlib.font_manager.FontProperties(size=20)
     # text.set_font_properties(font)
     # #plt.show()
-    return (x, y)
+    return (x[burn::], y[burn::])

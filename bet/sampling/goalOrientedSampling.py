@@ -1141,18 +1141,22 @@ class sampler_hpl_adaptive(bsam.sampler):
             #disc_new._io_ptr = None
             #disc_new._io_ptr_local = None
             #disc_new._input_sample_set.
-            int1_new = np.copy(self.int1)
-            prob1_new = np.copy(self.prob1)
-            int1_new[ind] = self.int2[ind]
-            prob1_new[ind] = self.prob2[ind]
 
-            prob1_new = prob1_new / np.sum(prob1_new)
-            nonzero = np.greater(self.prob1, 0.0)
-            ratio = prob1_new[nonzero] / self.prob1[nonzero]
-            int1_new[nonzero] = ratio * int1_new[nonzero]
-            ee_new = np.fabs(self.int2 - int1_new) + self.gamma * np.fabs(self.prob2 - prob1_new)
-            Es = [np.sum(ee_new[local_inds])]
+            if self.disc._input_sample_set._levels[ind] < (self.num_levels-1):
+                int1_new = np.copy(self.int1)
+                prob1_new = np.copy(self.prob1)
+                int1_new[ind] = self.int2[ind]
+                prob1_new[ind] = self.prob2[ind]
 
+                prob1_new = prob1_new / np.sum(prob1_new)
+                nonzero = np.greater(self.prob1, 0.0)
+                ratio = prob1_new[nonzero] / self.prob1[nonzero]
+                int1_new[nonzero] = ratio * int1_new[nonzero]
+                ee_new = np.fabs(self.int2 - int1_new) + self.gamma * np.fabs(self.prob2 - prob1_new)
+                Es = [np.sum(ee_new[local_inds])]
+            else:
+                Es = [np.inf]
+                
             em_inds = np.equal(self.disc._emulated_ii_ptr, ind)
             em_vals_local = self.disc._emulated_input_sample_set._values[em_inds]
             if em_vals_local.shape[0] < 2:
@@ -1219,6 +1223,122 @@ class sampler_hpl_adaptive(bsam.sampler):
                                  
         self.props = np.array(propsList)
         self.levels = np.array(levelsList)
+        #import pdb
+        #pdb.set_trace()
+        return (int1, int2, np.sum(ee))
+    
+    def hl_step_setup_chain_no_subgrid_local2(self, x, x_enhanced, factor=0.2, num_proposals=10, radius=0.1):
+        (ee, int1, int2) = self.calculate_ee_chain(x,x_enhanced)
+        max_ee = np.max(ee)
+        num_go = np.sum(np.greater(ee, factor*max_ee))
+        inds = np.argsort(ee)[::-1][0:num_go+1]
+        E = ee[inds]
+        # SAM (El, props, levels) = self.calculate_subgrid_ee_chain(inds, subgrid_set, x, x_enhanced)
+        #(El, props, levels) = self.calculate_subgrid_local(inds, x, x_enhanced)
+        
+        self.hList=[]
+        propsList=[]
+        levelsList=[]
+        self.lList=[]
+        ratiosList = []
+        for i in range(len(inds)):
+            ind = inds[i]
+            local_inds = np.less(nla.norm(self.disc._input_sample_set._values - self.disc._input_sample_set._values[inds[i],:], axis=1), radius)
+            Es_old = np.sum(ee[local_inds])
+            #disc_new = self.disc.copy()
+            #disc_new._io_ptr = None
+            #disc_new._io_ptr_local = None
+            #disc_new._input_sample_set.
+
+            # if self.disc._input_sample_set._levels[ind] < (self.num_levels-1):
+            #     int1_new = np.copy(self.int1)
+            #     prob1_new = np.copy(self.prob1)
+            #     int1_new[ind] = self.int2[ind]
+            #     prob1_new[ind] = self.prob2[ind]
+
+            #     prob1_new = prob1_new / np.sum(prob1_new)
+            #     nonzero = np.greater(self.prob1, 0.0)
+            #     ratio = prob1_new[nonzero] / self.prob1[nonzero]
+            #     int1_new[nonzero] = ratio * int1_new[nonzero]
+            #     ee_new = np.fabs(self.int2 - int1_new) + self.gamma * np.fabs(self.prob2 - prob1_new)
+            #     Es = [np.sum(ee_new[local_inds])]
+            # else:
+            #     Es = [np.inf]
+
+            Es = []
+                
+            em_inds = np.equal(self.disc._emulated_ii_ptr, ind)
+            em_vals_local = self.disc._emulated_input_sample_set._values[em_inds]
+            if em_vals_local.shape[0] < 2:
+            #    if self.dist is not None:
+                domain = [self.disc._input_sample_set._values[ind]-0.05,self.disc._input_sample_set._values[ind]+0.05]
+                domain = np.array(domain).transpose()
+            else:
+                    
+                domain = zip(np.min(em_vals_local, axis=0), np.max(em_vals_local, axis=0))
+                domain = np.array(domain)
+            dsize = domain[:,1] - domain[:,0]
+            d_cent = 0.5*(domain[:,0] + domain[:,1])
+            dsize *= 0.75
+            domain_local = zip(d_cent - dsize, d_cent + dsize)
+            domain_local = np.array(domain_local)
+            sample_set_local = sample.sample_set(self.disc._input_sample_set._dim)
+            sample_set_local.set_domain(domain_local)
+            sample_set_local = bsam.random_sample_set('r', sample_set_local, num_proposals)
+            # Define local subsets
+            subset1 = np.zeros(self.ptr1.shape, dtype=bool)
+            subset2 = np.zeros(self.ptr2.shape, dtype=bool)
+
+            linds = np.arange(len(local_inds))[local_inds]
+            for lind in linds:
+                subset1[np.equal(self.ptr1, lind)] = True
+                subset2[np.equal(self.ptr2, lind)] = True
+            # Loop over proposals
+            for K in range(num_proposals):
+                # dset = self.disc.copy()
+                # dset._input_sample_set.append_values(sample_set_local._values[K,:])
+                # dset._output_sample_set.append_values(np.zeros((1, dset._output_sample_set._dim)))
+                # dset._input_sample_set.set_kdtree()
+        
+                # for ar in dset._input_sample_set.array_names:
+                #     if ar is not "_values":
+                #         setattr(dset._input_sample_set, ar, None)
+                #         setattr(dset._output_sample_set, ar, None)
+                dset_i = sample.sample_set(self.disc._input_sample_set._dim)
+                dset_i.set_domain(self.disc._input_sample_set._domain)
+                vals = np.vstack((self.disc._input_sample_set._values[local_inds,:], np.array([sample_set_local._values[K,:]])))
+                dset_i.set_values(vals)
+                dset_o = sample.sample_set(self.disc._input_sample_set._dim)
+                dset_o.set_values(vals)
+                dset = sample.discretization(dset_i, dset_o)
+                
+                dummy_obj = sampler_hpl_adaptive(self.lb_model_list,
+                 self.f)
+                dummy_obj.disc = dset
+                dummy_obj.gamma = self.gamma
+                (ee_prop, int1_prop, int2_prop) = dummy_obj.calculate_ee_chain(x,x_enhanced, update_gamma=False, subset=subset1, subset_enhanced=subset2 )
+                Es.append(np.sum(ee_prop))
+                # import pdb
+                # pdb.set_trace()
+            #import pdb
+            #pdb.set_trace()
+            Es = np.array(Es)
+            which = np.argmin(Es)
+            ratio =  Es[which]/Es_old
+            ratiosList.append(ratio)
+            (_, ind_prop) = self.disc._input_sample_set.query(np.array([sample_set_local._values[which,:]]))
+            ind_prop = ind_prop[0]
+            
+            if ratio  > 0.99 and self.disc._input_sample_set._levels[ind_prop] < (self.num_levels - 1):
+                self.lList.append(ind)
+            else:
+                self.hList.append(ind)
+                propsList.append(sample_set_local._values[which,:])
+                levelsList.append(self.disc._input_sample_set._levels[ind_prop])
+                                 
+        self.props = np.array(propsList)
+        self.levels = np.array(levelsList)
+        print np.sort(np.array(ratiosList))
         #import pdb
         #pdb.set_trace()
         return (int1, int2, np.sum(ee))

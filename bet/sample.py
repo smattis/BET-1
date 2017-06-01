@@ -1002,7 +1002,7 @@ class sample_set_base(object):
         """
         Creates a :class:`scipy.spatial.KDTree` for this set of samples.
         """
-        self._kdtree = spatial.KDTree(self._values)
+        self._kdtree = spatial.cKDTree(self._values)
         self._kdtree_values = self._kdtree.data
 
     def get_kdtree(self):
