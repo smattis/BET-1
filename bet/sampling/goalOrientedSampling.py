@@ -1227,7 +1227,7 @@ class sampler_hpl_adaptive(bsam.sampler):
         #pdb.set_trace()
         return (int1, int2, np.sum(ee))
     
-    def hl_step_setup_chain_no_subgrid_local2(self, x, x_enhanced, factor=0.2, num_proposals=10, radius=0.1):
+    def hl_step_setup_chain_no_subgrid_local2(self, x, x_enhanced, factor=0.2, num_proposals=10, radius=0.01, num_neigh=10):
         (ee, int1, int2) = self.calculate_ee_chain(x,x_enhanced)
         max_ee = np.max(ee)
         num_go = np.sum(np.greater(ee, factor*max_ee))
@@ -1243,7 +1243,14 @@ class sampler_hpl_adaptive(bsam.sampler):
         ratiosList = []
         for i in range(len(inds)):
             ind = inds[i]
-            local_inds = np.less(nla.norm(self.disc._input_sample_set._values - self.disc._input_sample_set._values[inds[i],:], axis=1), radius)
+            go = True
+            rad_loc = radius
+            while go:
+                local_inds = np.less(nla.norm(self.disc._input_sample_set._values - self.disc._input_sample_set._values[inds[i],:], axis=1), rad_loc)
+                if np.sum(local_inds) < num_neigh:
+                    rad_loc *= 1.5
+                else:
+                    go = False
             Es_old = np.sum(ee[local_inds])
             #disc_new = self.disc.copy()
             #disc_new._io_ptr = None
@@ -1329,7 +1336,7 @@ class sampler_hpl_adaptive(bsam.sampler):
             (_, ind_prop) = self.disc._input_sample_set.query(np.array([sample_set_local._values[which,:]]))
             ind_prop = ind_prop[0]
             
-            if ratio  > 0.99 and self.disc._input_sample_set._levels[ind_prop] < (self.num_levels - 1):
+            if ratio  > (0.95) and self.disc._input_sample_set._levels[ind_prop] < (self.num_levels - 1):
                 self.lList.append(ind)
             else:
                 self.hList.append(ind)
