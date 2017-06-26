@@ -1336,7 +1336,7 @@ class sampler_hpl_adaptive(bsam.sampler):
             (_, ind_prop) = self.disc._input_sample_set.query(np.array([sample_set_local._values[which,:]]))
             ind_prop = ind_prop[0]
             
-            if ratio  > (0.95) and self.disc._input_sample_set._levels[ind_prop] < (self.num_levels - 1):
+            if ratio  >= (0.99) and self.disc._input_sample_set._levels[ind_prop] < (self.num_levels - 1):
                 self.lList.append(ind)
             else:
                 self.hList.append(ind)
